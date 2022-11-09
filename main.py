@@ -1,6 +1,6 @@
 import csv
 from datetime import datetime, timedelta
-from enum import Flag, auto
+from enum import IntEnum, Flag, auto
 from typing import NamedTuple
 from abc import ABC, abstractmethod
 from ortools.sat.python import cp_model
@@ -121,11 +121,15 @@ class AbsenceRequest(Commitment):
         return self._prsn_id == prsn.prsn_id
 
 def parse_csv(file: str, parse_fn):
+    all_objs = []
+
     with open(file, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader, None)
+
         all_objs = [parse_fn(row) for row in reader]
-        return all_objs
+
+    return all_objs
 
 def parse_duties(str: str):
     return Duty(str[3], str_to_duty_type(str[3]), datetime.strptime(str[9], '%m/%d/%Y %I:%M:%S %p'), datetime.strptime(str[10], '%m/%d/%Y %I:%M:%S %p'))
@@ -133,42 +137,36 @@ def parse_duties(str: str):
 def parse_shell_lines(str: str):
     return Line(int(str[0]), datetime.strptime(str[1], '%m/%d/%Y %I:%M:%S %p'))
 
-def LOX_col_to_int(col: str) -> int:
-    if col == 'LAST_NAME': return 0
-    elif col == 'FIRST_NAME': return 1
-    elif col == 'PRSN_ID': return 2
-    elif col == 'OBSERVER': return 11
-    elif col == 'CONTROLLER': return 12
-    elif col == 'SOF': return 13
-    elif col == 'OPS_SUP': return 14
+class LOX_COL(IntEnum):
+    LAST_NAME = 0
+    FIRST_NAME = 1
+    PRSN_ID = 2
+    OBSERVER = 11
+    CONTROLLER = 12
+    SOF = 13
+    OPS_SUP = 14
 
-    return 0
-
-def is_qualified(qual_row, qual: str) -> bool:
-    LOX_val = qual_row[LOX_col_to_int(qual)]
+def is_qualified(qual_row, qual: LOX_COL) -> bool:
+    LOX_val = qual_row[qual]
     return (LOX_val.find('X') != -1) or (LOX_val.find('D') != -1)
 
 def parse_personnel(str: str):
-    last_name = LOX_col_to_int('LAST_NAME')
-    first_name = LOX_col_to_int('FIRST_NAME')
-    prsn_id =  LOX_col_to_int('PRSN_ID')
+    last_name = str[LOX_COL.LAST_NAME]
+    first_name = str[LOX_COL.FIRST_NAME]
+    prsn_id = int(str[LOX_COL.PRSN_ID])
 
-    p = Person(int(str[prsn_id]), str[last_name], str[first_name])
+    p = Person(prsn_id, last_name, first_name)
     
-    controller_qual = is_qualified(str, 'CONTROLLER')
-    if controller_qual == True:
+    if is_qualified(str, LOX_COL.CONTROLLER) == True:
         p.qual(DutyType.CONTROLLER)
 
-    observer_qual = is_qualified(str, 'OBSERVER')
-    if observer_qual == True:
+    if is_qualified(str, LOX_COL.OBSERVER) == True:
         p.qual(DutyType.OBSERVER)
 
-    ops_sup_qual = is_qualified(str, 'OPS_SUP')
-    if ops_sup_qual == True:
+    if is_qualified(str, LOX_COL.OPS_SUP) == True:
         p.qual(DutyType.OPS_SUP)
 
-    sof_qual = is_qualified(str, 'SOF')
-    if sof_qual == True:
+    if is_qualified(str, LOX_COL.SOF) == True:
         p.qual(DutyType.SOF)
 
     return p
@@ -205,9 +203,14 @@ class ScheduleSolverPrinter(cp_model.CpSolverSolutionCallback):
                         print('  [%s]: sign-in: %s, sign-out: %s -- %s, %s' % (d.name, d.start_dt().strftime('%H%M'), d.end_dt().strftime('%H%M'), p._last_name, p._first_name))
 
             for l in self._lines:
+                print('  [%i]: brief: %s, takeoff: %s, debrief_end: %s -- ' % (l.number, l.time_brief.strftime('%H%M'), l.time_takeoff.strftime('%H%M'), l.time_debrief_end.strftime('%H%M')), end='')
+
                 for p in self._personnel:
                     if self.Value(self._flying_schedule[(l.number, p.prsn_id)]):
-                        print('  [%i]: brief: %s, takeoff: %s, debrief_end: %s -- %s, %s' % (l.number, l.time_brief.strftime('%H%M'), l.time_takeoff.strftime('%H%M'), l.time_debrief_end.strftime('%H%M'), p._last_name, p._first_name))
+                        #print('  [%i]: brief: %s, takeoff: %s, debrief_end: %s -- %s, %s' % (l.number, l.time_brief.strftime('%H%M'), l.time_takeoff.strftime('%H%M'), l.time_debrief_end.strftime('%H%M'), p._last_name, p._first_name))
+                        print(' %s, %s' % (p._last_name, p._first_name), end='')
+
+                print()
 
             if self._solution_count >= self._solution_limit:
                 print('Stop search after %i solutions' % self._solution_limit)
@@ -220,6 +223,15 @@ def get_duties_conflicting_with_duty(duty: Duty, duties: list[Duty]) -> list[Dut
     conflicting_duties = [d for d in duties if duty.is_conflict(d)]
     return conflicting_duties
 
+def duty_day_exceeded(c1: Commitment, c2: Commitment) -> bool:
+    td1:timedelta = c1.end_dt() - c2.start_dt()
+    td1_hrs = td1.total_seconds() / 3600.0
+
+    td2:timedelta = c2.end_dt() - c1.start_dt()
+    td2_hrs = td2.total_seconds() / 3600.0
+
+    return td1_hrs > 12.0 or td2_hrs > 12.0
+
 def run():
     print("Entering Run")
 
@@ -231,20 +243,10 @@ def run():
     absence_request_file = RES_DIR + 'absence_requests.csv'
 
     all_duties: list[Duty] = parse_csv(duty_schedule_file, parse_duties)
-    #all_duties= [Duty("Tinder 1 Controller", DutyType.CONTROLLER, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 12:00:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
+    #all_duties= [Duty("Tinder 1 Controller", DutyType.CONTROLLER, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 10:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Duty("Tinder 2 Controller", DutyType.CONTROLLER, datetime.strptime('7/29/2022 10:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 11:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Duty("Tinder 3 Controller", DutyType.CONTROLLER, datetime.strptime('7/29/2022 11:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 12:00:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
     all_lines: list[Line] = parse_csv(flying_schedule_file, parse_shell_lines)
-    #all_lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(3, datetime.strptime('7/29/2022 3:00:00 PM', '%m/%d/%Y %I:%M:%S %p'))] 
+    #all_lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 12:30:00 PM', '%m/%d/%Y %I:%M:%S %p')), Line(3, datetime.strptime('7/29/2022 2:00:00 PM', '%m/%d/%Y %I:%M:%S %p'))] 
     all_personnel: list[Person] = parse_csv(lox_file, parse_personnel)
-    all_personnel.append(Person(1000, "JOE", "PILOT"))
-    all_personnel.append(Person(1001, "JOE", "PILOT"))
-    all_personnel.append(Person(1002, "JOE", "PILOT"))
-    all_personnel.append(Person(1003, "JOE", "PILOT"))
-    all_personnel.append(Person(1004, "JOE", "PILOT"))
-    all_personnel.append(Person(1005, "JOE", "PILOT"))
-    all_personnel.append(Person(1006, "JOE", "PILOT"))
-    all_personnel.append(Person(1007, "JOE", "PILOT"))
-    all_personnel.append(Person(1008, "JOE", "PILOT"))
-    all_personnel.append(Person(1009, "JOE", "PILOT"))
     #keeler = Person(1, "Keeler", "Joshua")
     #keeler.qual(DutyType.CONTROLLER)
     #hannon = Person(2, "Phil", "Hannon")
@@ -290,22 +292,23 @@ def run():
         duties_to_be_scheduled = [duty_schedule[(duty.name, p.prsn_id)] for p in all_personnel if p.is_qualified(duty.type)]
         model.Add(sum(duties_to_be_scheduled) == 1)
 
-    # all lines filled with a pilot
+    # limit lines to at most one pilot
     for curr_line in all_lines:
-        model.AddExactlyOne(flying_schedule[(curr_line.number, p.prsn_id)] for p in all_personnel)
-    
+        pilots_in_line = [flying_schedule[(curr_line.number, p.prsn_id)] for p in all_personnel]
+        model.Add(sum(pilots_in_line) <= 1)
+
     # max number of events
-    MAX_NUM_EVENTS_PER_PERSON = 2
+    MAX_NUM_EVENTS_PER_PERSON = 3
     for p in all_personnel:
-        num_events_per_person = []
+        events_per_person = []
 
         for curr_line in all_lines:
-            num_events_per_person.append(flying_schedule[(curr_line.number, p.prsn_id)])
+            events_per_person.append(flying_schedule[(curr_line.number, p.prsn_id)])
 
         for duty in all_duties:
-            num_events_per_person.append(duty_schedule[(duty.name, p.prsn_id)])
+            events_per_person.append(duty_schedule[(duty.name, p.prsn_id)])
 
-        model.Add(sum(num_events_per_person) <= MAX_NUM_EVENTS_PER_PERSON)
+        model.Add(sum(events_per_person) <= MAX_NUM_EVENTS_PER_PERSON)
 
     # all pilots must have turn time between sorties 
     for p in all_personnel: 
@@ -319,15 +322,34 @@ def run():
             fl = [flying_schedule[(l.number, p.prsn_id)] for l in all_lines if l.is_conflict(d)]
             model.Add(sum(fl) == 0).OnlyEnforceIf(duty_schedule[(d.name, p.prsn_id)])
 
-    # honor absence requests # for every person
-    csp_conflicting_lines: list = []
+    #TODO: test this!
+    # must have 12 hour duty day
     for p in all_personnel:
-        for curr_line in all_lines:
-            persons_absence_requests = [ar for ar in all_absences if ar.assigned_to(p)]
-            for ar in persons_absence_requests:
-                if (ar.is_conflict(curr_line)):
-                    csp_conflicting_lines.append(flying_schedule[(curr_line.number, p.prsn_id)])
-    model.Add(sum(csp_conflicting_lines) == 0)
+        for duty in all_duties:
+            csp_forbidden_duties = [duty_schedule[(d.name, p.prsn_id)] for d in all_duties if duty_day_exceeded(duty, d)]
+            csp_forbidden_lines = [flying_schedule[(l.number, p.prsn_id)] for l in all_lines if duty_day_exceeded(duty, d)]
+            model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(duty_schedule[(duty.name, p.prsn_id)])
+        
+        for line in all_lines:
+            csp_forbidden_duties = [duty_schedule[(d.name, p.prsn_id)] for d in all_duties if duty_day_exceeded(line, d)]
+            csp_forbidden_lines = [flying_schedule[(l.number, p.prsn_id)] for l in all_lines if duty_day_exceeded(line, l)]
+            model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(flying_schedule[(line.number, p.prsn_id)])
+
+    # honor absence requests  for every person
+    for p in all_personnel:
+        persons_absence_requests = [ar for ar in all_absences if ar.assigned_to(p)]
+
+        for ar in persons_absence_requests:
+            csp_conflicting_lines = [flying_schedule[(curr_line.number, p.prsn_id)] for l in all_lines if l.is_conflict(ar)]
+            model.Add(sum(csp_conflicting_lines) == 0)
+
+    # maximize the lines filled by IPs
+    lines_filled = []
+    for l in all_lines:
+        for p in all_personnel:
+            lines_filled.append(flying_schedule[(l.number, p.prsn_id)])
+
+    model.Maximize(sum(lines_filled))
 
     solver = cp_model.CpSolver()
     solver.parameters.enumerate_all_solutions = True
