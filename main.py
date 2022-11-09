@@ -5,6 +5,8 @@ from typing import NamedTuple
 from abc import ABC, abstractmethod
 from ortools.sat.python import cp_model
 
+from scheduler import ScheduleModel, ScheduleSolver
+
 class DutyType(Flag):
     CONTROLLER = auto()
     OBSERVER = auto()
@@ -207,7 +209,6 @@ class ScheduleSolverPrinter(cp_model.CpSolverSolutionCallback):
 
                 for p in self._personnel:
                     if self.Value(self._flying_schedule[(l.number, p.prsn_id)]):
-                        #print('  [%i]: brief: %s, takeoff: %s, debrief_end: %s -- %s, %s' % (l.number, l.time_brief.strftime('%H%M'), l.time_takeoff.strftime('%H%M'), l.time_debrief_end.strftime('%H%M'), p._last_name, p._first_name))
                         print(' %s, %s' % (p._last_name, p._first_name), end='')
 
                 print()
@@ -256,106 +257,110 @@ def run():
     #all_absences: list[AbsenceRequest] = [AbsenceRequest(1, datetime.strptime('7/29/2022 5:44:00 PM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 6:35:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
     #all_absences = []
 
-    model = cp_model.CpModel()
+    model = ScheduleModel()
+    solver = ScheduleSolver(model)
+    solution = solver.solve()
 
-    # create all duty variables
-    duty_schedule = {}
-    for duty in all_duties:
-        for p in all_personnel:
-            duty_schedule[(duty.name, p.prsn_id)] = model.NewBoolVar('duty_s%s%i' % (duty.name, p.prsn_id))    
-
-    # create all flying line variables
-    flying_schedule = {}
-    for curr_line in all_lines:
-        for p in all_personnel:
-            flying_schedule[(curr_line.number, p.prsn_id)] = model.NewBoolVar('line_n%ipilot_n%i' % (curr_line.number, p.prsn_id))
-    
-    # all duties filled with respective qual'd personnel
-    for duty in all_duties:
-        model.AddExactlyOne(duty_schedule[(duty.name, p.prsn_id)] for p in all_personnel)
-
-#   TODO: refactor/test this!
-#    # must have turn time between duties
-    for duty in all_duties:
-        conflicting_duties = get_duties_conflicting_with_duty(duty, all_duties)
-
-        for p in all_personnel:
-            conflicting_duties_for_person = []
-
-            for cd in conflicting_duties:
-                conflicting_duties_for_person.append(duty_schedule[(cd.name, p.prsn_id)])
-
-            model.Add(sum(conflicting_duties_for_person) <= 1)
-    
-    # must be qualified for duty
-    for duty in all_duties:
-        duties_to_be_scheduled = [duty_schedule[(duty.name, p.prsn_id)] for p in all_personnel if p.is_qualified(duty.type)]
-        model.Add(sum(duties_to_be_scheduled) == 1)
-
-    # limit lines to at most one pilot
-    for curr_line in all_lines:
-        pilots_in_line = [flying_schedule[(curr_line.number, p.prsn_id)] for p in all_personnel]
-        model.Add(sum(pilots_in_line) <= 1)
-
-    # max number of events
-    MAX_NUM_EVENTS_PER_PERSON = 3
-    for p in all_personnel:
-        events_per_person = []
-
-        for curr_line in all_lines:
-            events_per_person.append(flying_schedule[(curr_line.number, p.prsn_id)])
-
-        for duty in all_duties:
-            events_per_person.append(duty_schedule[(duty.name, p.prsn_id)])
-
-        model.Add(sum(events_per_person) <= MAX_NUM_EVENTS_PER_PERSON)
-
-    # all pilots must have turn time between sorties 
-    for p in all_personnel: 
-        for curr_line in all_lines:
-            csp_allowed_lines = [flying_schedule[(stepped_line.number, p.prsn_id)] for stepped_line in all_lines if curr_line.is_conflict(stepped_line)]
-            model.Add(sum(csp_allowed_lines) <= 1)
-
-    # must have turn time between duty and flight
-    for p in all_personnel:
-        for d in all_duties:
-            fl = [flying_schedule[(l.number, p.prsn_id)] for l in all_lines if l.is_conflict(d)]
-            model.Add(sum(fl) == 0).OnlyEnforceIf(duty_schedule[(d.name, p.prsn_id)])
-
-    #TODO: test this!
-    # must have 12 hour duty day
-    for p in all_personnel:
-        for duty in all_duties:
-            csp_forbidden_duties = [duty_schedule[(d.name, p.prsn_id)] for d in all_duties if duty_day_exceeded(duty, d)]
-            csp_forbidden_lines = [flying_schedule[(l.number, p.prsn_id)] for l in all_lines if duty_day_exceeded(duty, d)]
-            model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(duty_schedule[(duty.name, p.prsn_id)])
-        
-        for line in all_lines:
-            csp_forbidden_duties = [duty_schedule[(d.name, p.prsn_id)] for d in all_duties if duty_day_exceeded(line, d)]
-            csp_forbidden_lines = [flying_schedule[(l.number, p.prsn_id)] for l in all_lines if duty_day_exceeded(line, l)]
-            model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(flying_schedule[(line.number, p.prsn_id)])
-
-    # honor absence requests  for every person
-    for p in all_personnel:
-        persons_absence_requests = [ar for ar in all_absences if ar.assigned_to(p)]
-
-        for ar in persons_absence_requests:
-            csp_conflicting_lines = [flying_schedule[(curr_line.number, p.prsn_id)] for l in all_lines if l.is_conflict(ar)]
-            model.Add(sum(csp_conflicting_lines) == 0)
-
-    # maximize the lines filled by IPs
-    lines_filled = []
-    for l in all_lines:
-        for p in all_personnel:
-            lines_filled.append(flying_schedule[(l.number, p.prsn_id)])
-
-    model.Maximize(sum(lines_filled))
-
-    solver = cp_model.CpSolver()
-    solver.parameters.enumerate_all_solutions = True
-
-    printer = ScheduleSolverPrinter(duty_schedule, flying_schedule, all_duties, all_lines, all_personnel, 5)
-    solver.Solve(model, printer)
+#    model = cp_model.CpModel()
+#
+#    # create all duty variables
+#    duty_schedule = {}
+#    for duty in all_duties:
+#        for p in all_personnel:
+#            duty_schedule[(duty.name, p.prsn_id)] = model.NewBoolVar('duty_s%s%i' % (duty.name, p.prsn_id))    
+#
+#    # create all flying line variables
+#    flying_schedule = {}
+#    for curr_line in all_lines:
+#        for p in all_personnel:
+#            flying_schedule[(curr_line.number, p.prsn_id)] = model.NewBoolVar('line_n%ipilot_n%i' % (curr_line.number, p.prsn_id))
+#    
+#    # all duties filled with respective qual'd personnel
+#    for duty in all_duties:
+#        model.AddExactlyOne(duty_schedule[(duty.name, p.prsn_id)] for p in all_personnel)
+#
+##   TODO: refactor/test this!
+##    # must have turn time between duties
+#    for duty in all_duties:
+#        conflicting_duties = get_duties_conflicting_with_duty(duty, all_duties)
+#
+#        for p in all_personnel:
+#            conflicting_duties_for_person = []
+#
+#            for cd in conflicting_duties:
+#                conflicting_duties_for_person.append(duty_schedule[(cd.name, p.prsn_id)])
+#
+#            model.Add(sum(conflicting_duties_for_person) <= 1)
+#    
+#    # must be qualified for duty
+#    for duty in all_duties:
+#        duties_to_be_scheduled = [duty_schedule[(duty.name, p.prsn_id)] for p in all_personnel if p.is_qualified(duty.type)]
+#        model.Add(sum(duties_to_be_scheduled) == 1)
+#
+#    # limit lines to at most one pilot
+#    for curr_line in all_lines:
+#        pilots_in_line = [flying_schedule[(curr_line.number, p.prsn_id)] for p in all_personnel]
+#        model.Add(sum(pilots_in_line) <= 1)
+#
+#    # max number of events
+#    MAX_NUM_EVENTS_PER_PERSON = 3
+#    for p in all_personnel:
+#        events_per_person = []
+#
+#        for curr_line in all_lines:
+#            events_per_person.append(flying_schedule[(curr_line.number, p.prsn_id)])
+#
+#        for duty in all_duties:
+#            events_per_person.append(duty_schedule[(duty.name, p.prsn_id)])
+#
+#        model.Add(sum(events_per_person) <= MAX_NUM_EVENTS_PER_PERSON)
+#
+#    # all pilots must have turn time between sorties 
+#    for p in all_personnel: 
+#        for curr_line in all_lines:
+#            csp_allowed_lines = [flying_schedule[(stepped_line.number, p.prsn_id)] for stepped_line in all_lines if curr_line.is_conflict(stepped_line)]
+#            model.Add(sum(csp_allowed_lines) <= 1)
+#
+#    # must have turn time between duty and flight
+#    for p in all_personnel:
+#        for d in all_duties:
+#            fl = [flying_schedule[(l.number, p.prsn_id)] for l in all_lines if l.is_conflict(d)]
+#            model.Add(sum(fl) == 0).OnlyEnforceIf(duty_schedule[(d.name, p.prsn_id)])
+#
+#    #TODO: test this!
+#    # must have 12 hour duty day
+#    for p in all_personnel:
+#        for duty in all_duties:
+#            csp_forbidden_duties = [duty_schedule[(d.name, p.prsn_id)] for d in all_duties if duty_day_exceeded(duty, d)]
+#            csp_forbidden_lines = [flying_schedule[(l.number, p.prsn_id)] for l in all_lines if duty_day_exceeded(duty, d)]
+#            model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(duty_schedule[(duty.name, p.prsn_id)])
+#        
+#        for line in all_lines:
+#            csp_forbidden_duties = [duty_schedule[(d.name, p.prsn_id)] for d in all_duties if duty_day_exceeded(line, d)]
+#            csp_forbidden_lines = [flying_schedule[(l.number, p.prsn_id)] for l in all_lines if duty_day_exceeded(line, l)]
+#            model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(flying_schedule[(line.number, p.prsn_id)])
+#
+#    # honor absence requests  for every person
+#    for p in all_personnel:
+#        persons_absence_requests = [ar for ar in all_absences if ar.assigned_to(p)]
+#
+#        for ar in persons_absence_requests:
+#            csp_conflicting_lines = [flying_schedule[(curr_line.number, p.prsn_id)] for l in all_lines if l.is_conflict(ar)]
+#            model.Add(sum(csp_conflicting_lines) == 0)
+#
+#    # maximize the lines filled by IPs
+#    lines_filled = []
+#    for l in all_lines:
+#        for p in all_personnel:
+#            lines_filled.append(flying_schedule[(l.number, p.prsn_id)])
+#
+#    model.Maximize(sum(lines_filled))
+#
+#    solver = cp_model.CpSolver()
+#    solver.parameters.enumerate_all_solutions = True
+#
+#    printer = ScheduleSolverPrinter(duty_schedule, flying_schedule, all_duties, all_lines, all_personnel, 5)
+#    solver.Solve(model, printer)
 
     print("Exiting Run")
 
