@@ -8,24 +8,6 @@ from ortools.sat.python import cp_model
 from scheduler import ScheduleModel, ScheduleSolver
 
 
-class Line(Commitment):
-    number: int
-    time_brief: datetime
-    time_takeoff: datetime
-    time_debrief_end: datetime
-
-    def __init__(self, number: int, time_takeoff: datetime):
-        self.number = number
-        self.time_takeoff = time_takeoff
-        self.time_brief = time_takeoff - timedelta(hours=1, minutes=15)
-        self.time_debrief_end = self.time_brief + timedelta(hours=3, minutes=30)
-
-    def start_dt(self) -> datetime:
-        return self.time_brief
-
-    def end_dt(self) -> datetime:
-        return self.time_debrief_end
-
 class AbsenceRequest(Commitment):
     _prsn_id: int
     _start_dt: datetime
@@ -187,24 +169,6 @@ def run():
     solver = ScheduleSolver(model)
     solution = solver.solve()
 
-#    model = cp_model.CpModel()
-#
-#    # create all duty variables
-#    duty_schedule = {}
-#    for duty in all_duties:
-#        for p in all_personnel:
-#            duty_schedule[(duty.name, p.prsn_id)] = model.NewBoolVar('duty_s%s%i' % (duty.name, p.prsn_id))    
-#
-#    # create all flying line variables
-#    flying_schedule = {}
-#    for curr_line in all_lines:
-#        for p in all_personnel:
-#            flying_schedule[(curr_line.number, p.prsn_id)] = model.NewBoolVar('line_n%ipilot_n%i' % (curr_line.number, p.prsn_id))
-#    
-#    # all duties filled with respective qual'd personnel
-#    for duty in all_duties:
-#        model.AddExactlyOne(duty_schedule[(duty.name, p.prsn_id)] for p in all_personnel)
-#
 ##   TODO: refactor/test this!
 ##    # must have turn time between duties
 #    for duty in all_duties:
@@ -218,16 +182,6 @@ def run():
 #
 #            model.Add(sum(conflicting_duties_for_person) <= 1)
 #    
-#    # must be qualified for duty
-#    for duty in all_duties:
-#        duties_to_be_scheduled = [duty_schedule[(duty.name, p.prsn_id)] for p in all_personnel if p.is_qualified(duty.type)]
-#        model.Add(sum(duties_to_be_scheduled) == 1)
-#
-#    # limit lines to at most one pilot
-#    for curr_line in all_lines:
-#        pilots_in_line = [flying_schedule[(curr_line.number, p.prsn_id)] for p in all_personnel]
-#        model.Add(sum(pilots_in_line) <= 1)
-#
 #    # max number of events
 #    MAX_NUM_EVENTS_PER_PERSON = 3
 #    for p in all_personnel:
@@ -273,13 +227,7 @@ def run():
 #        for ar in persons_absence_requests:
 #            csp_conflicting_lines = [flying_schedule[(curr_line.number, p.prsn_id)] for l in all_lines if l.is_conflict(ar)]
 #            model.Add(sum(csp_conflicting_lines) == 0)
-#
-#    # maximize the lines filled by IPs
-#    lines_filled = []
-#    for l in all_lines:
-#        for p in all_personnel:
-#            lines_filled.append(flying_schedule[(l.number, p.prsn_id)])
-#
+
 #    model.Maximize(sum(lines_filled))
 #
 #    solver = cp_model.CpSolver()

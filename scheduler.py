@@ -60,6 +60,24 @@ class Commitment(ABC):
     def end_dt(self) -> datetime:
         pass
 
+class Line(Commitment):
+    number: int
+    time_brief: datetime
+    time_takeoff: datetime
+    time_debrief_end: datetime
+
+    def __init__(self, number: int, time_takeoff: datetime):
+        self.number = number
+        self.time_takeoff = time_takeoff
+        self.time_brief = time_takeoff - timedelta(hours=1, minutes=15)
+        self.time_debrief_end = self.time_brief + timedelta(hours=3, minutes=30)
+
+    def start_dt(self) -> datetime:
+        return self.time_brief
+
+    def end_dt(self) -> datetime:
+        return self.time_debrief_end
+
 class Duty(Commitment):
     name: str
     type: DutyType
@@ -79,14 +97,17 @@ class Duty(Commitment):
         return self._sign_out_dt
 
 class ScheduleModel:
+    lines = []
     duties = []
     personnel = []
     
-    def __init__(self, duties, personnel):
+    def __init__(self, lines, duties, personnel):
+        self.lines = lines
         self.duties = duties
         self.personnel = personnel
 
 class ScheduleSolver:
+    _flying_schedule_vars = {}
     _duty_schedule_vars = {}
     _sched_model: ScheduleModel
     
@@ -103,21 +124,58 @@ class ScheduleSolver:
         status = solver.Solve(model)
 
         if status != cp_model.OPTIMAL:
-            raise Exception("Suboptimal solution")
-            
-        return self._get_solution(solver)
+            return (status, {})
+
+        return (status, self._get_solution(solver))
 
 
     def _add_variables(self, model: cp_model.CpModel):
         # create all duty variables
         for duty in self._sched_model.duties:
             for person in self._sched_model.personnel:
-                self._duty_schedule_vars[(duty.name, person.prsn_id)] = model.NewBoolVar('duty_s%s%i' % (duty.name, person.prsn_id))    
+                self._duty_schedule_vars[(duty.name, person.prsn_id)] =  model.NewBoolVar('duty_s%s%i' % (duty.name, person.prsn_id))
+        
+        # create all flying line variables
+        flying_schedule = {}
+        for curr_line in self._sched_model.lines:
+            for p in self._sched_model.personnel:
+                self._flying_schedule_vars[(curr_line.number, p.prsn_id)] = model.NewBoolVar('line_n%ipilot_n%i' % (curr_line.number, p.prsn_id))
 
     def _add_constraints(self, model: cp_model.CpModel):
+        # max number of events
+        MAX_NUM_EVENTS_PER_PERSON = 3
+        for p in self._sched_model.personnel:
+            events_per_person = []
+
+            for curr_line in self._sched_model.lines:
+                events_per_person.append(self._flying_schedule_vars[(curr_line.number, p.prsn_id)])
+
+            for duty in self._sched_model.duties:
+                events_per_person.append(self._duty_schedule_vars[(duty.name, p.prsn_id)])
+
+            model.Add(sum(events_per_person) <= MAX_NUM_EVENTS_PER_PERSON)
+        
         # all duties filled with respective qual'd personnel
         for duty in self._sched_model.duties:
             model.AddExactlyOne(self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._sched_model.personnel)
+
+        # must be qualified for duty
+        for duty in self._sched_model.duties:
+            duties_to_be_scheduled = [self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._sched_model.personnel if p.is_qualified(duty.type)]
+            model.Add(sum(duties_to_be_scheduled) == 1)
+
+        # limit lines to at most one pilot
+        for curr_line in self._sched_model.lines:
+            pilots_in_line = [self._flying_schedule_vars[(curr_line.number, p.prsn_id)] for p in self._sched_model.personnel]
+            model.Add(sum(pilots_in_line) <= 1)
+
+        # maximize the lines filled by IPs
+        lines_filled = []
+        for l in self._sched_model.lines:
+            for p in self._sched_model.personnel:
+                lines_filled.append(self._flying_schedule_vars[(l.number, p.prsn_id)])
+
+        model.Maximize(sum(lines_filled))
 
     def _get_solution(self, solver: cp_model.CpSolver):
         solution = {}
@@ -125,6 +183,12 @@ class ScheduleSolver:
         for d in self._sched_model.duties:
             for p in self._sched_model.personnel:
                 if solver.Value(self._duty_schedule_vars[(d.name, p.prsn_id)]):
+                    print('hehehehehe')
                     solution[d.name] = p.prsn_id
+
+        for l in self._sched_model.lines:
+            for p in self._sched_model.personnel:
+                if solver.Value(self._flying_schedule_vars[(l.number, p.prsn_id)]):
+                    solution[l.number] = p.prsn_id
 
         return solution
