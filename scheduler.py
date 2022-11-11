@@ -12,24 +12,6 @@ class DutyType(Flag):
     OPS_SUP = auto()
     SOF = auto()
 
-def str_to_duty_type(str_type: str) -> DutyType:
-    lc_str_type = str_type.lower()
-
-    if lc_str_type.find('controller') != -1:
-        return DutyType.CONTROLLER
-    elif lc_str_type.find('observer') != -1:
-        return DutyType.OBSERVER
-    elif lc_str_type.find('recorder') != -1:
-        return DutyType.RECORDER
-    elif lc_str_type.find('spotter') != -1:
-        return DutyType.SPOTTER
-    elif lc_str_type.find('loner') != -1:
-        return DutyType.LONER
-    elif lc_str_type.find('sof') != -1:
-        return DutyType.SOF
-    else:
-        return DutyType.OPS_SUP
-
 class Person:
     prsn_id: int
     _first_name: str
@@ -96,15 +78,52 @@ class Duty(Commitment):
     def end_dt(self) -> datetime:
         return self._sign_out_dt
 
+class AbsenceRequest(Commitment):
+    _prsn_id: int
+    _start_dt: datetime
+    _end_dt: datetime
+
+    def __init__(self, prsn_id: int, start_dt: datetime, end_dt: datetime):
+        self._prsn_id = prsn_id
+        self._start_dt = start_dt
+        self._end_dt = end_dt
+
+    def __str__(self) -> str:
+        return self._start_dt.strftime('%m/%d/%Y %I:%M:%S %p') + " " + self._end_dt.strftime('%m/%d/%Y %I:%M:%S %p')
+
+    def start_dt(self) -> datetime:
+        return self._start_dt
+
+    def end_dt(self) -> datetime:
+        return self._end_dt
+
+    def assigned_to(self, prsn: Person) -> bool:
+        return self._prsn_id == prsn.prsn_id
+
 class ScheduleModel:
-    lines = []
-    duties = []
-    personnel = []
+    lines: list[Line] = []
+    duties: list[Duty] = []
+    personnel: list[Person] = []
+    absences: list[AbsenceRequest] = []
     
-    def __init__(self, lines, duties, personnel):
+    def __init__(self, lines: list[Line], duties: list[Duty], personnel: list[Person], absences: list[AbsenceRequest]):
         self.lines = lines
         self.duties = duties
         self.personnel = personnel
+        self.absences = absences
+
+def duty_day_exceeded(c1: Commitment, c2: Commitment) -> bool:
+    td1:timedelta = c1.end_dt() - c2.start_dt()
+    td1_hrs = td1.total_seconds() / 3600.0
+
+    td2:timedelta = c2.end_dt() - c1.start_dt()
+    td2_hrs = td2.total_seconds() / 3600.0
+
+    return td1_hrs > 12.0 or td2_hrs > 12.0
+
+def get_duties_conflicting_with_duty(duty: Duty, duties: list[Duty]) -> list[Duty]:
+    conflicting_duties = [d for d in duties if duty.is_conflict(d)]
+    return conflicting_duties
 
 class ScheduleSolver:
     _flying_schedule_vars = {}
@@ -136,12 +155,19 @@ class ScheduleSolver:
                 self._duty_schedule_vars[(duty.name, person.prsn_id)] =  model.NewBoolVar('duty_s%s%i' % (duty.name, person.prsn_id))
         
         # create all flying line variables
-        flying_schedule = {}
         for curr_line in self._sched_model.lines:
             for p in self._sched_model.personnel:
                 self._flying_schedule_vars[(curr_line.number, p.prsn_id)] = model.NewBoolVar('line_n%ipilot_n%i' % (curr_line.number, p.prsn_id))
 
     def _add_constraints(self, model: cp_model.CpModel):
+        # honor absence requests  for every person
+        for p in self._sched_model.personnel:
+            persons_absence_requests = [ar for ar in self._sched_model.absences if ar.assigned_to(p)]
+    
+            for ar in persons_absence_requests:
+                csp_conflicting_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._sched_model.lines if l.is_conflict(ar)]
+                model.Add(sum(csp_conflicting_lines) == 0)
+                
         # max number of events
         MAX_NUM_EVENTS_PER_PERSON = 3
         for p in self._sched_model.personnel:
@@ -155,6 +181,19 @@ class ScheduleSolver:
 
             model.Add(sum(events_per_person) <= MAX_NUM_EVENTS_PER_PERSON)
         
+        #TODO: test this!
+        # must have 12 hour duty day
+        for p in self._sched_model.personnel:
+            for duty in self._sched_model.duties:
+                csp_forbidden_duties = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._sched_model.duties if duty_day_exceeded(duty, d)]
+                csp_forbidden_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._sched_model.lines if duty_day_exceeded(duty, l)]
+                model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._duty_schedule_vars[(duty.name, p.prsn_id)])
+            
+            for line in self._sched_model.lines:
+                csp_forbidden_duties = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._sched_model.duties if duty_day_exceeded(line, d)]
+                csp_forbidden_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._sched_model.lines if duty_day_exceeded(line, l)]
+                model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._flying_schedule_vars[(line.number, p.prsn_id)])
+                
         # all duties filled with respective qual'd personnel
         for duty in self._sched_model.duties:
             model.AddExactlyOne(self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._sched_model.personnel)
@@ -164,10 +203,27 @@ class ScheduleSolver:
             duties_to_be_scheduled = [self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._sched_model.personnel if p.is_qualified(duty.type)]
             model.Add(sum(duties_to_be_scheduled) == 1)
 
+        # TODO: refactor/test this!
+        # must have turn time between duties
+        for duty in self._sched_model.duties:
+            conflicting_duties = get_duties_conflicting_with_duty(duty, self._sched_model.duties)
+    
+            for p in self._sched_model.personnel:
+                conflicting_duties_for_person = [self._duty_schedule_vars[(cd.name, p.prsn_id)] for cd in conflicting_duties]
+    
+                model.Add(sum(conflicting_duties_for_person) <= 1)
+        
         # limit lines to at most one pilot
         for curr_line in self._sched_model.lines:
             pilots_in_line = [self._flying_schedule_vars[(curr_line.number, p.prsn_id)] for p in self._sched_model.personnel]
             model.Add(sum(pilots_in_line) <= 1)
+
+        # all pilots must have turn time between sorties 
+        #TODO: bug here...
+        #for p in self._sched_model.personnel:
+        #    for curr_line in self._sched_model.lines:
+        #        csp_allowed_lines = [self._flying_schedule_vars[(stepped_line.number, p.prsn_id)] for stepped_line in self._sched_model.lines if curr_line.is_conflict(stepped_line)]
+        #        model.Add(sum(csp_allowed_lines) <= 1)
 
         # maximize the lines filled by IPs
         lines_filled = []
@@ -183,12 +239,14 @@ class ScheduleSolver:
         for d in self._sched_model.duties:
             for p in self._sched_model.personnel:
                 if solver.Value(self._duty_schedule_vars[(d.name, p.prsn_id)]):
-                    print('hehehehehe')
-                    solution[d.name] = p.prsn_id
+                    solution[d.name] = p
 
         for l in self._sched_model.lines:
+            null_pilot = Person(0, "", "")
+            solution[l.number] = null_pilot
+
             for p in self._sched_model.personnel:
                 if solver.Value(self._flying_schedule_vars[(l.number, p.prsn_id)]):
-                    solution[l.number] = p.prsn_id
+                    solution[l.number] = p
 
         return solution

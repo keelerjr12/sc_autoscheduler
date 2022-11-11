@@ -9,18 +9,19 @@ def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_s
     duty2 = Duty("Tinder 2 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 10, 0), datetime(2022, 7, 29, 11, 0))   
     duty3 = Duty("Tinder 3 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 11, 0), datetime(2022, 7, 29, 12, 0))   
     duties = [duty1, duty2, duty3]
+    absences = []
 
     controller = Person(1, "LastName", "FirstName")
     controller.qual(DutyType.CONTROLLER)
     personnel = [controller]
 
-    model = ScheduleModel(lines, duties, personnel)
+    model = ScheduleModel(lines, duties, personnel, absences)
     solver = ScheduleSolver(model)
 
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
-    assert solution == {duties[0].name: personnel[0].prsn_id, duties[1].name: personnel[0].prsn_id, duties[2].name: personnel[0].prsn_id}
+    assert solution == {duties[0].name: personnel[0], duties[1].name: personnel[0], duties[2].name: personnel[0]}
 
 def test_given_greater_than_max_num_duties_single_qualified_person_when_solved_then_infeasible_solution():
     lines = []
@@ -29,12 +30,13 @@ def test_given_greater_than_max_num_duties_single_qualified_person_when_solved_t
     duty3 = Duty("Tinder 3 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 11, 0), datetime(2022, 7, 29, 12, 0))   
     duty4 = Duty("Tinder 4 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 12, 0), datetime(2022, 7, 29, 13, 0))   
     duties = [duty1, duty2, duty3, duty4]
+    absences = []
 
     controller = Person(1, "LastName", "FirstName")
     controller.qual(DutyType.CONTROLLER)
     personnel = [controller]
 
-    model = ScheduleModel(lines, duties, personnel)
+    model = ScheduleModel(lines, duties, personnel, absences)
     solver = ScheduleSolver(model)
 
     (status, solution) = solver.solve()
@@ -50,21 +52,23 @@ def test_given_single_duty_and_single_qualified_person_when_solved_then_duty_is_
     controller = Person(1, "LastName", "FirstName")
     controller.qual(DutyType.CONTROLLER)
     personnel = [controller]
+    absences = []
 
-    model = ScheduleModel(lines, duties, personnel)
+    model = ScheduleModel(lines, duties, personnel, absences)
     solver = ScheduleSolver(model)
 
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
-    assert solution == {duties[0].name: personnel[0].prsn_id}
+    assert solution == {duties[0].name: personnel[0]}
 
 def test_given_single_duty_and_single_unqualified_person_when_solved_then_duty_is_unfilled():
     lines = []
     duties = [Duty("Tinder 1 Controller", DutyType.CONTROLLER, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 10:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
     personnel = [Person(1, "LastName", "FirstName")]
+    absences = []
 
-    model = ScheduleModel(lines, duties, personnel)
+    model = ScheduleModel(lines, duties, personnel, absences)
     solver = ScheduleSolver(model)
 
     (status, solution) = solver.solve()
@@ -77,11 +81,12 @@ def test_given_single_line_and_single_person_when_solved_then_line_is_filled():
     duties = []
     person = Person(1, "LastName", "FirstName")
     personnel = [person]
+    absences = []
 
-    model = ScheduleModel(lines, duties, personnel)
+    model = ScheduleModel(lines, duties, personnel, absences)
     solver = ScheduleSolver(model)
 
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
-    assert solution == {lines[0].number: personnel[0].prsn_id}
+    assert solution == {lines[0].number: personnel[0]}
