@@ -90,3 +90,35 @@ def test_given_single_line_and_single_person_when_solved_then_line_is_filled():
 
     assert status == cp_model.OPTIMAL
     assert solution == {lines[0].number: personnel[0]}
+
+def test_given_single_pilot_with_turn_time_when_solved_then_optimal_solution():
+    lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
+    duties = []
+    person = Person(1, "LastName", "FirstName")
+    personnel = [person]
+    absences = []
+
+    model = ScheduleModel(lines, duties, personnel, absences)
+    solver = ScheduleSolver(model)
+
+    (status, solution) = solver.solve()
+
+    assert status == cp_model.OPTIMAL
+    assert solution == {lines[0].number: personnel[0], lines[1].number: personnel[0]}
+
+def test_given_multiple_pilots_with_turn_time_when_solved_then_optimal_solution():
+    lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 8:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(3, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(4, datetime.strptime('7/29/2022 12:00:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
+    duties = []
+    personnel = [Person(1, "LastName", "FirstName"), Person(2, "LastName", "FirstName")]
+    absences = []
+
+    model = ScheduleModel(lines, duties, personnel, absences)
+    solver = ScheduleSolver(model)
+
+    (status, solution) = solver.solve()
+
+    assert status == cp_model.OPTIMAL
+    for key, val in solution.items():
+        print(key)
+        print(val.prsn_id)
+    assert ((solution == {lines[0].number: personnel[0], lines[1].number: personnel[1], lines[2].number: personnel[0], lines[3].number: personnel[1]}) or (solution == {lines[0].number: personnel[1], lines[1].number: personnel[0], lines[2].number: personnel[1], lines[3].number: personnel[0]}))

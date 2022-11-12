@@ -219,11 +219,11 @@ class ScheduleSolver:
             model.Add(sum(pilots_in_line) <= 1)
 
         # all pilots must have turn time between sorties 
-        #TODO: bug here...
-        #for p in self._sched_model.personnel:
-        #    for curr_line in self._sched_model.lines:
-        #        csp_allowed_lines = [self._flying_schedule_vars[(stepped_line.number, p.prsn_id)] for stepped_line in self._sched_model.lines if curr_line.is_conflict(stepped_line)]
-        #        model.Add(sum(csp_allowed_lines) <= 1)
+        #TODO: write unit tests for this!
+        for p in self._sched_model.personnel:
+            for curr_line in self._sched_model.lines:
+                csp_allowed_lines = [self._flying_schedule_vars[(stepped_line.number, p.prsn_id)] for stepped_line in self._sched_model.lines if curr_line.is_conflict(stepped_line)]
+                model.Add(sum(csp_allowed_lines) <= 1).OnlyEnforceIf(self._flying_schedule_vars[(curr_line.number, p.prsn_id)])
 
         # maximize the lines filled by IPs
         lines_filled = []
