@@ -148,7 +148,7 @@ def run():
 
     for l in all_lines:
         person = solution[l.number]
-        print(l.number, person._last_name, person._first_name)
+        print('[%i] brief: %s, takeoff: %s, debrief end: %s -- %s, %s' % (l.number, l.time_brief.strftime('%H%M'), l.time_takeoff.strftime('%H%M'), l.time_debrief_end.strftime('%H%M'), person._last_name, person._first_name))
 
 #    # must have turn time between duty and flight
 #    for p in all_personnel:

@@ -242,7 +242,7 @@ class ScheduleSolver:
                     solution[d.name] = p
 
         for l in self._sched_model.lines:
-            null_pilot = Person(0, "", "")
+            null_pilot = None
             solution[l.number] = null_pilot
 
             for p in self._sched_model.personnel:
