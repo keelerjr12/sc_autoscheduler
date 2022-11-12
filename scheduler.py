@@ -194,6 +194,12 @@ class ScheduleSolver:
                 csp_forbidden_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._sched_model.lines if duty_day_exceeded(line, l)]
                 model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._flying_schedule_vars[(line.number, p.prsn_id)])
                 
+#    # must have turn time between duty and flight
+#    for p in all_personnel:
+#        for d in all_duties:
+#            fl = [flying_schedule[(l.number, p.prsn_id)] for l in all_lines if l.is_conflict(d)]
+#            model.Add(sum(fl) == 0).OnlyEnforceIf(duty_schedule[(d.name, p.prsn_id)])
+
         # all duties filled with respective qual'd personnel
         for duty in self._sched_model.duties:
             model.AddExactlyOne(self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._sched_model.personnel)
