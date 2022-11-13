@@ -15,9 +15,7 @@ def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_s
     controller.qual(DutyType.CONTROLLER)
     personnel = [controller]
 
-    model = ScheduleModel(lines, duties, personnel, absences)
-    solver = ScheduleSolver(model)
-
+    solver = ScheduleSolver(personnel, lines, duties, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
@@ -36,9 +34,7 @@ def test_given_greater_than_max_num_duties_single_qualified_person_when_solved_t
     controller.qual(DutyType.CONTROLLER)
     personnel = [controller]
 
-    model = ScheduleModel(lines, duties, personnel, absences)
-    solver = ScheduleSolver(model)
-
+    solver = ScheduleSolver(personnel, lines, duties, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.INFEASIBLE
@@ -54,9 +50,7 @@ def test_given_single_duty_and_single_qualified_person_when_solved_then_duty_is_
     personnel = [controller]
     absences = []
 
-    model = ScheduleModel(lines, duties, personnel, absences)
-    solver = ScheduleSolver(model)
-
+    solver = ScheduleSolver(personnel, lines, duties, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
@@ -68,9 +62,7 @@ def test_given_single_duty_and_single_unqualified_person_when_solved_then_duty_i
     personnel = [Person(1, "LastName", "FirstName")]
     absences = []
 
-    model = ScheduleModel(lines, duties, personnel, absences)
-    solver = ScheduleSolver(model)
-
+    solver = ScheduleSolver(personnel, lines, duties, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.INFEASIBLE
@@ -83,9 +75,7 @@ def test_given_single_line_and_single_person_when_solved_then_line_is_filled():
     personnel = [person]
     absences = []
 
-    model = ScheduleModel(lines, duties, personnel, absences)
-    solver = ScheduleSolver(model)
-
+    solver = ScheduleSolver(personnel, lines, duties, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
@@ -98,9 +88,7 @@ def test_given_single_pilot_with_turn_time_when_solved_then_optimal_solution():
     personnel = [person]
     absences = []
 
-    model = ScheduleModel(lines, duties, personnel, absences)
-    solver = ScheduleSolver(model)
-
+    solver = ScheduleSolver(personnel, lines, duties, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
@@ -112,9 +100,7 @@ def test_given_multiple_pilots_with_turn_time_when_solved_then_optimal_solution(
     personnel = [Person(1, "LastName", "FirstName"), Person(2, "LastName", "FirstName")]
     absences = []
 
-    model = ScheduleModel(lines, duties, personnel, absences)
-    solver = ScheduleSolver(model)
-
+    solver = ScheduleSolver(personnel, lines, duties, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
@@ -126,9 +112,7 @@ def test_given_single_pilot_without_turn_time_when_solved_then_optimal_solution_
     personnel = [Person(1, "LastName", "FirstName")]
     absences = []
 
-    model = ScheduleModel(lines, duties, personnel, absences)
-    solver = ScheduleSolver(model)
-
+    solver = ScheduleSolver(personnel, lines, duties, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL

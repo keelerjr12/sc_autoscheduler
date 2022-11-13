@@ -102,16 +102,15 @@ def run():
     lox_file = RES_DIR + 'lox.csv'
     absence_request_file = RES_DIR + 'absence_requests.csv'
 
-    all_duties: list[Duty] = parse_csv(duty_schedule_file, parse_duties)
-    all_lines: list[Line] = parse_csv(flying_schedule_file, parse_shell_lines)
-    all_personnel: list[Person] = parse_csv(lox_file, parse_personnel)
-    all_absences: list[AbsenceRequest] = parse_csv(absence_request_file, parse_absence_requests)
+    duties: list[Duty] = parse_csv(duty_schedule_file, parse_duties)
+    lines: list[Line] = parse_csv(flying_schedule_file, parse_shell_lines)
+    personnel: list[Person] = parse_csv(lox_file, parse_personnel)
+    absences: list[AbsenceRequest] = parse_csv(absence_request_file, parse_absence_requests)
 
-    model = ScheduleModel(all_lines, all_duties, all_personnel, all_absences)
-    solver = ScheduleSolver(model)
-
+    solver = ScheduleSolver(personnel, lines, duties, absences)
     (status, solution) = solver.solve()
-    print_solution(solution, all_duties, all_lines)
+
+    print_solution(solution, duties, lines)
 
     print("Exiting Run")
 
