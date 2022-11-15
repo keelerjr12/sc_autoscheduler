@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
-from scheduler import ScheduleModel, ScheduleSolver, Person, Line, Duty, DutyType
+from scheduler import ScheduleModel, ScheduleSolver, Person, Line, Duty, DutyType, has_turn_time
 
 def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_solution():
     lines = []
@@ -117,3 +117,18 @@ def test_given_single_pilot_without_turn_time_when_solved_then_optimal_solution_
 
     assert status == cp_model.OPTIMAL
     assert ((solution == {lines[0].number: None, lines[1].number: personnel[0]}) or (solution == {lines[0].number: personnel[0], lines[1].number: None}))
+
+def test_given_commitments_with_time_delta_exceeded_when_run_returns_true():
+    lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 12:14:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
+
+    is_exceeded = has_turn_time(lines[0], lines[1], timedelta(hours = 4, minutes = 15))
+
+    assert is_exceeded == True
+
+def test_given_commitments_with_time_delta_not_exceeded_when_run_returns_false():
+    lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 12:15:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
+
+    is_exceeded = has_turn_time(lines[0], lines[1], timedelta(hours = 4, minutes = 15))
+
+    assert is_exceeded == False
+

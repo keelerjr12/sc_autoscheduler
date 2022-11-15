@@ -90,8 +90,13 @@ def print_solution(solution, duties, lines):
 
     for line in lines:
         person = solution[line.number]
-        print('[%i] brief: %s, takeoff: %s, debrief end: %s -- %s, %s' % (line.number, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M'), person._last_name, person._first_name))
 
+        print('[%i] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')), end='')
+
+        if solution[line.number] != None:
+            print ("%s, %s" % (person._last_name, person._first_name), end='')
+            
+        print()
 def run():
     print("Entering Run")
 

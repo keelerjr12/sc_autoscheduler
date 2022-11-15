@@ -121,6 +121,12 @@ def duty_day_exceeded(c1: Commitment, c2: Commitment) -> bool:
 
     return td1_hrs > 12.0 or td2_hrs > 12.0
 
+def has_turn_time(l1: Line, l2: Line, td: timedelta) -> bool:
+    td1 :timedelta = l1.time_takeoff - l2.time_takeoff
+    td2 :timedelta = l2.time_takeoff - l1.time_takeoff
+
+    return td1 > td or td2 > td
+
 def get_duties_conflicting_with_duty(duty: Duty, duties: list[Duty]) -> list[Duty]:
     conflicting_duties = [d for d in duties if duty.is_conflict(d)]
     return conflicting_duties
@@ -203,6 +209,13 @@ class ScheduleSolver:
                 fl = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if l.is_conflict(d)]
                 model.Add(sum(fl) == 0).OnlyEnforceIf(self._duty_schedule_vars[(d.name, p.prsn_id)])
 
+        #TODO: test this!!!
+        # must have turn time between flight and duty
+        for p in self._personnel:
+            for l in self._lines:
+                fd = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._duties if d.is_conflict(l)]
+                model.Add(sum(fd) == 0).OnlyEnforceIf(self._flying_schedule_vars[(l.number, p.prsn_id)])
+
         # all duties filled with respective qual'd personnel
         for duty in self._duties:
             model.AddExactlyOne(self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._personnel)
@@ -233,6 +246,16 @@ class ScheduleSolver:
             for curr_line in self._lines:
                 csp_allowed_lines = [self._flying_schedule_vars[(stepped_line.number, p.prsn_id)] for stepped_line in self._lines if curr_line.is_conflict(stepped_line)]
                 model.Add(sum(csp_allowed_lines) <= 1).OnlyEnforceIf(self._flying_schedule_vars[(curr_line.number, p.prsn_id)])
+
+        # all pilots have max turn time of 4+15
+        #TODO: write unit tests for this
+        for p in self._personnel:
+            for line in self._lines:
+                csp_forbidden_duties = []
+                #csp_forbidden_duties = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._duties if has_turn_time(line, d, timedelta(hours = 4, minutes = 15))]
+                csp_forbidden_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if has_turn_time(line, l, timedelta(hours = 4, minutes = 15))]
+                model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._flying_schedule_vars[(line.number, p.prsn_id)])
+
 
         # maximize the lines filled by IPs
         lines_filled = []
