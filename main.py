@@ -93,17 +93,17 @@ def parse_absence_requests(str: str):
     recur_end_dt = datetime.strptime(str[11], '%m/%d/%Y %I:%M:%S %p')
     weekday_ptn = str[12]
 
-    print(prsn_id, start_dt, end_dt, recur_end_dt)
-    if (weekday_ptn == ""):
-        return AbsenceRequest(prsn_id, start_dt, end_dt)
-    else:
-        weekday_bit_ptn = int(weekday_ptn)
-
-        for single_date in daterange(start_dt, recur_end_dt):
-                if ((1 << single_date.isoweekday()) & weekday_bit_ptn):
-                    print(single_date.strftime("%Y-%m-%d, %H-%M-%S"))
-    ######## TODO: finish processing absence requests w/time deltas for end date
-    
+###    print(prsn_id, start_dt, end_dt, recur_end_dt)
+###    if (weekday_ptn == ""):
+###        return AbsenceRequest(prsn_id, start_dt, end_dt)
+###    else:
+###        weekday_bit_ptn = int(weekday_ptn)
+###
+###        for single_date in daterange(start_dt, recur_end_dt):
+###                if ((1 << single_date.isoweekday()) & weekday_bit_ptn):
+###                    print(single_date.strftime("%Y-%m-%d, %H-%M-%S"))
+###    ######## TODO: finish processing absence requests w/time deltas for end date
+###    
     return AbsenceRequest(prsn_id, start_dt, end_dt)
 
 
