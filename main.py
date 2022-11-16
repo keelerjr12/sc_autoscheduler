@@ -5,7 +5,7 @@ from typing import NamedTuple
 from abc import ABC, abstractmethod
 from ortools.sat.python import cp_model
 
-from scheduler import ScheduleModel, ScheduleSolver, Duty, DutyType, Line, Person, AbsenceRequest
+from scheduler import ScheduleModel, ScheduleSolver, Duty, DutyQual, FlightOrg, FlightQual, Line, Person, AbsenceRequest
 
 def parse_csv(file: str, parse_fn):
     all_objs = []
@@ -18,29 +18,31 @@ def parse_csv(file: str, parse_fn):
 
     return all_objs
 
-def str_to_duty_type(str_type: str) -> DutyType:
+def str_to_duty_type(str_type: str) -> DutyQual:
     lc_str_type = str_type.lower()
 
     if lc_str_type.find('controller') != -1:
-        return DutyType.CONTROLLER
+        return DutyQual.CONTROLLER
     elif lc_str_type.find('observer') != -1:
-        return DutyType.OBSERVER
+        return DutyQual.OBSERVER
     elif lc_str_type.find('recorder') != -1:
-        return DutyType.RECORDER
+        return DutyQual.RECORDER
     elif lc_str_type.find('spotter') != -1:
-        return DutyType.SPOTTER
+        return DutyQual.SPOTTER
     elif lc_str_type.find('loner') != -1:
-        return DutyType.LONER
+        return DutyQual.LONER
     elif lc_str_type.find('sof') != -1:
-        return DutyType.SOF
+        return DutyQual.SOF
     else:
-        return DutyType.OPS_SUP
+        return DutyQual.OPS_SUP
 
 def parse_duties(str: str):
     return Duty(str[3], str_to_duty_type(str[3]), datetime.strptime(str[9], '%m/%d/%Y %I:%M:%S %p'), datetime.strptime(str[10], '%m/%d/%Y %I:%M:%S %p'))
 
 def parse_shell_lines(str: str):
-    return Line(int(str[0]), datetime.strptime(str[1], '%m/%d/%Y %I:%M:%S %p'))
+    flight_designator_str = str[2].split(sep=' - ')[1][0]
+    org = FlightOrg[flight_designator_str]
+    return Line(int(str[0]), org, datetime.strptime(str[1], '%m/%d/%Y %I:%M:%S %p'))
 
 class LOX_COL(IntEnum):
     LAST_NAME = 0
@@ -50,6 +52,7 @@ class LOX_COL(IntEnum):
     CONTROLLER = 12
     SOF = 13
     OPS_SUP = 14
+    PIT_IP = 19
 
 def is_qualified(qual_row, qual: LOX_COL) -> bool:
     LOX_val = qual_row[qual]
@@ -63,25 +66,46 @@ def parse_personnel(str: str):
     p = Person(prsn_id, last_name, first_name)
     
     if is_qualified(str, LOX_COL.CONTROLLER) == True:
-        p.qual(DutyType.CONTROLLER)
+        p.qual_for_duty(DutyQual.CONTROLLER)
 
     if is_qualified(str, LOX_COL.OBSERVER) == True:
-        p.qual(DutyType.OBSERVER)
+        p.qual_for_duty(DutyQual.OBSERVER)
 
     if is_qualified(str, LOX_COL.OPS_SUP) == True:
-        p.qual(DutyType.OPS_SUP)
+        p.qual_for_duty(DutyQual.OPS_SUP)
 
     if is_qualified(str, LOX_COL.SOF) == True:
-        p.qual(DutyType.SOF)
+        p.qual_for_duty(DutyQual.SOF)
+
+    if is_qualified(str, LOX_COL.PIT_IP) == True:
+        p.qual_for_flight(FlightQual.PIT)
 
     return p
 
+def daterange(start_date, end_date):
+    for n in range(int((end_date - start_date).days + 1)):
+        yield start_date + timedelta(n)
+    
 def parse_absence_requests(str: str):
     prsn_id = int(str[2])
     start_dt = datetime.strptime(str[8], '%m/%d/%Y %I:%M:%S %p')
     end_dt = datetime.strptime(str[9], '%m/%d/%Y %I:%M:%S %p')
+    recur_end_dt = datetime.strptime(str[11], '%m/%d/%Y %I:%M:%S %p')
+    weekday_ptn = str[12]
 
+    print(prsn_id, start_dt, end_dt, recur_end_dt)
+    if (weekday_ptn == ""):
+        return AbsenceRequest(prsn_id, start_dt, end_dt)
+    else:
+        weekday_bit_ptn = int(weekday_ptn)
+
+        for single_date in daterange(start_dt, recur_end_dt):
+                if ((1 << single_date.isoweekday()) & weekday_bit_ptn):
+                    print(single_date.strftime("%Y-%m-%d, %H-%M-%S"))
+    ######## TODO: finish processing absence requests w/time deltas for end date
+    
     return AbsenceRequest(prsn_id, start_dt, end_dt)
+
 
 def print_solution(solution, duties, lines):
     for duty in duties:
@@ -91,7 +115,7 @@ def print_solution(solution, duties, lines):
     for line in lines:
         person = solution[line.number]
 
-        print('[%i] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')), end='')
+        print('[%i][%s] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.flight_org, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')), end='')
 
         if solution[line.number] != None:
             print ("%s, %s" % (person._last_name, person._first_name), end='')

@@ -1,18 +1,18 @@
 import pytest
 from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
-from scheduler import ScheduleModel, ScheduleSolver, Person, Line, Duty, DutyType, has_turn_time
+from scheduler import ScheduleModel, ScheduleSolver, Person, Line, Duty, DutyQual, has_turn_time
 
 def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_solution():
     lines = []
-    duty1 = Duty("Tinder 1 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 9, 0), datetime(2022, 7, 29, 10, 0))   
-    duty2 = Duty("Tinder 2 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 10, 0), datetime(2022, 7, 29, 11, 0))   
-    duty3 = Duty("Tinder 3 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 11, 0), datetime(2022, 7, 29, 12, 0))   
+    duty1 = Duty("Tinder 1 Controller", DutyQual.CONTROLLER, datetime(2022, 7, 29, 9, 0), datetime(2022, 7, 29, 10, 0))   
+    duty2 = Duty("Tinder 2 Controller", DutyQual.CONTROLLER, datetime(2022, 7, 29, 10, 0), datetime(2022, 7, 29, 11, 0))   
+    duty3 = Duty("Tinder 3 Controller", DutyQual.CONTROLLER, datetime(2022, 7, 29, 11, 0), datetime(2022, 7, 29, 12, 0))   
     duties = [duty1, duty2, duty3]
     absences = []
 
     controller = Person(1, "LastName", "FirstName")
-    controller.qual(DutyType.CONTROLLER)
+    controller.qual_for_duty(DutyQual.CONTROLLER)
     personnel = [controller]
 
     solver = ScheduleSolver(personnel, lines, duties, absences)
@@ -23,15 +23,15 @@ def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_s
 
 def test_given_greater_than_max_num_duties_single_qualified_person_when_solved_then_infeasible_solution():
     lines = []
-    duty1 = Duty("Tinder 1 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 9, 0), datetime(2022, 7, 29, 10, 0))   
-    duty2 = Duty("Tinder 2 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 10, 0), datetime(2022, 7, 29, 11, 0))   
-    duty3 = Duty("Tinder 3 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 11, 0), datetime(2022, 7, 29, 12, 0))   
-    duty4 = Duty("Tinder 4 Controller", DutyType.CONTROLLER, datetime(2022, 7, 29, 12, 0), datetime(2022, 7, 29, 13, 0))   
+    duty1 = Duty("Tinder 1 Controller", DutyQual.CONTROLLER, datetime(2022, 7, 29, 9, 0), datetime(2022, 7, 29, 10, 0))   
+    duty2 = Duty("Tinder 2 Controller", DutyQual.CONTROLLER, datetime(2022, 7, 29, 10, 0), datetime(2022, 7, 29, 11, 0))   
+    duty3 = Duty("Tinder 3 Controller", DutyQual.CONTROLLER, datetime(2022, 7, 29, 11, 0), datetime(2022, 7, 29, 12, 0))   
+    duty4 = Duty("Tinder 4 Controller", DutyQual.CONTROLLER, datetime(2022, 7, 29, 12, 0), datetime(2022, 7, 29, 13, 0))   
     duties = [duty1, duty2, duty3, duty4]
     absences = []
 
     controller = Person(1, "LastName", "FirstName")
-    controller.qual(DutyType.CONTROLLER)
+    controller.qual_for_duty(DutyQual.CONTROLLER)
     personnel = [controller]
 
     solver = ScheduleSolver(personnel, lines, duties, absences)
@@ -43,10 +43,10 @@ def test_given_greater_than_max_num_duties_single_qualified_person_when_solved_t
 
 def test_given_single_duty_and_single_qualified_person_when_solved_then_duty_is_filled():
     lines = []
-    duties = [Duty("Tinder 1 Controller", DutyType.CONTROLLER, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 10:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
+    duties = [Duty("Tinder 1 Controller", DutyQual.CONTROLLER, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 10:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
 
     controller = Person(1, "LastName", "FirstName")
-    controller.qual(DutyType.CONTROLLER)
+    controller.qual_for_duty(DutyQual.CONTROLLER)
     personnel = [controller]
     absences = []
 
@@ -58,7 +58,7 @@ def test_given_single_duty_and_single_qualified_person_when_solved_then_duty_is_
 
 def test_given_single_duty_and_single_unqualified_person_when_solved_then_duty_is_unfilled():
     lines = []
-    duties = [Duty("Tinder 1 Controller", DutyType.CONTROLLER, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 10:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
+    duties = [Duty("Tinder 1 Controller", DutyQual.CONTROLLER, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 10:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
     personnel = [Person(1, "LastName", "FirstName")]
     absences = []
 

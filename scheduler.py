@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from enum import Flag, auto
+from enum import Enum, Flag, auto
 from ortools.sat.python import cp_model
 
-class DutyType(Flag):
+class DutyQual(Flag):
     CONTROLLER = auto()
     OBSERVER = auto()
     RECORDER = auto()
@@ -12,23 +12,35 @@ class DutyType(Flag):
     OPS_SUP = auto()
     SOF = auto()
 
+class FlightQual(Flag):
+    PIT = auto()
+    CHECK = auto()
+
 class Person:
     prsn_id: int
     _first_name: str
     _last_name: str
-    _quals: DutyType
+    _duty_quals: DutyQual
+    _flight_quals: FlightQual 
 
     def __init__(self, prsn_id: int, last_name: str, first_name: str):
         self.prsn_id = prsn_id
         self._first_name = first_name
         self._last_name = last_name
-        self._quals: DutyType = DutyType.CONTROLLER & DutyType.OBSERVER
+        self._duty_quals: DutyQual = DutyQual.CONTROLLER & DutyQual.OBSERVER
+        self._flight_quals: FlightQual = FlightQual.PIT & ~FlightQual.PIT
 
-    def qual(self, type: DutyType):
-        self._quals = self._quals | type
+    def qual_for_duty(self, type: DutyQual):
+        self._duty_quals = self._duty_quals | type
 
-    def is_qualified(self, type: DutyType) -> bool:
-        return (self._quals & type) != (DutyType.CONTROLLER & ~DutyType.CONTROLLER) ## TODO: This is a very hacky way for bitwise 0
+    def qual_for_flight(self, type: FlightQual):
+        self._flight_quals = self._flight_quals | type
+
+    def is_qualified_for_duty(self, type: DutyQual) -> bool:
+        return (self._duty_quals & type) != (DutyQual.CONTROLLER & ~DutyQual.CONTROLLER) ## TODO: This is a very hacky way for bitwise 0
+
+    def is_qualified_for_flight(self, type: FlightQual) -> bool:
+        return (self._flight_quals & type) != (FlightQual.PIT & ~FlightQual.PIT) ## TODO: This is a very hacky way for bitwise 0
 
 class Commitment(ABC):
     def is_conflict(self, other) -> bool:
@@ -42,14 +54,25 @@ class Commitment(ABC):
     def end_dt(self) -> datetime:
         pass
 
+class FlightOrg(Enum):
+    M = auto()
+    N = auto()
+    O = auto()
+    P = auto()
+    X = auto()
+
 class Line(Commitment):
     number: int
+    flight_org: FlightOrg
+
     time_brief: datetime
     time_takeoff: datetime
     time_debrief_end: datetime
 
-    def __init__(self, number: int, time_takeoff: datetime):
+    def __init__(self, number: int, org: FlightOrg, time_takeoff: datetime):
         self.number = number
+        self.flight_org = org
+
         self.time_takeoff = time_takeoff
         self.time_brief = time_takeoff - timedelta(hours=1, minutes=15)
         self.time_debrief_end = self.time_brief + timedelta(hours=3, minutes=30)
@@ -62,11 +85,11 @@ class Line(Commitment):
 
 class Duty(Commitment):
     name: str
-    type: DutyType
+    type: DutyQual
     _sign_in_dt: datetime
     _sign_out_dt: datetime
 
-    def __init__(self, name: str, type: DutyType, sign_in_dt: datetime, sign_out_dt: datetime):
+    def __init__(self, name: str, type: DutyQual, sign_in_dt: datetime, sign_out_dt: datetime):
         self.name = name
         self.type = type
         self._sign_in_dt = sign_in_dt
@@ -146,6 +169,7 @@ class ScheduleSolver:
 
         self._add_variables(model)
         self._add_constraints(model)
+        self._add_objective(model)
 
         solver = cp_model.CpSolver()
         status = solver.Solve(model)
@@ -154,7 +178,6 @@ class ScheduleSolver:
             return (status, {})
 
         return (status, self._get_solution(solver))
-
 
     def _add_variables(self, model: cp_model.CpModel):
         # create all duty variables
@@ -167,16 +190,15 @@ class ScheduleSolver:
             for p in self._personnel:
                 self._flying_schedule_vars[(curr_line.number, p.prsn_id)] = model.NewBoolVar('line_n%ipilot_n%i' % (curr_line.number, p.prsn_id))
 
-    def _add_constraints(self, model: cp_model.CpModel):
-        # honor absence requests  for every person
+    def _constraint_absence_requests(self, model: cp_model.CpModel):
         for p in self._personnel:
             persons_absence_requests = [ar for ar in self._absences if ar.assigned_to(p)]
     
             for ar in persons_absence_requests:
                 csp_conflicting_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if l.is_conflict(ar)]
                 model.Add(sum(csp_conflicting_lines) == 0)
-                
-        # max number of events
+
+    def _constraint_max_num_events(self, model: cp_model.CpModel):
         MAX_NUM_EVENTS_PER_PERSON = 3
         for p in self._personnel:
             events_per_person = []
@@ -188,9 +210,9 @@ class ScheduleSolver:
                 events_per_person.append(self._duty_schedule_vars[(duty.name, p.prsn_id)])
 
             model.Add(sum(events_per_person) <= MAX_NUM_EVENTS_PER_PERSON)
-        
+
+    def _constraint_max_duty_day(self, model: cp_model.CpModel):
         #TODO: test this!
-        # must have 12 hour duty day
         for p in self._personnel:
             for duty in self._duties:
                 csp_forbidden_duties = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._duties if duty_day_exceeded(duty, d)]
@@ -201,32 +223,18 @@ class ScheduleSolver:
                 csp_forbidden_duties = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._duties if duty_day_exceeded(line, d)]
                 csp_forbidden_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if duty_day_exceeded(line, l)]
                 model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._flying_schedule_vars[(line.number, p.prsn_id)])
-                
-        #TODO: test this!!!
-        # must have turn time between duty and flight
-        for p in self._personnel:
-            for d in self._duties:
-                fl = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if l.is_conflict(d)]
-                model.Add(sum(fl) == 0).OnlyEnforceIf(self._duty_schedule_vars[(d.name, p.prsn_id)])
 
-        #TODO: test this!!!
-        # must have turn time between flight and duty
-        for p in self._personnel:
-            for l in self._lines:
-                fd = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._duties if d.is_conflict(l)]
-                model.Add(sum(fd) == 0).OnlyEnforceIf(self._flying_schedule_vars[(l.number, p.prsn_id)])
-
-        # all duties filled with respective qual'd personnel
+    def _constraint_duty_filled_with_single_person(self, model: cp_model.CpModel):
         for duty in self._duties:
             model.AddExactlyOne(self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._personnel)
 
-        # must be qualified for duty
-        for duty in self._duties:
-            duties_to_be_scheduled = [self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._personnel if p.is_qualified(duty.type)]
-            model.Add(sum(duties_to_be_scheduled) == 1)
-
+    def _constraint_flight_filled_with_at_most_single_person(self, model: cp_model.CpModel):
+        for curr_line in self._lines:
+            pilots_in_line = [self._flying_schedule_vars[(curr_line.number, p.prsn_id)] for p in self._personnel]
+            model.Add(sum(pilots_in_line) <= 1)
+            
+    def _constraint_min_turn_time_between_duty_and_duty(self, model: cp_model.CpModel):
         # TODO: refactor/test this!
-        # must have turn time between duties
         for duty in self._duties:
             conflicting_duties = get_duties_conflicting_with_duty(duty, self._duties)
     
@@ -234,20 +242,29 @@ class ScheduleSolver:
                 conflicting_duties_for_person = [self._duty_schedule_vars[(cd.name, p.prsn_id)] for cd in conflicting_duties]
     
                 model.Add(sum(conflicting_duties_for_person) <= 1)
-        
-        # limit lines to at most one pilot
-        for curr_line in self._lines:
-            pilots_in_line = [self._flying_schedule_vars[(curr_line.number, p.prsn_id)] for p in self._personnel]
-            model.Add(sum(pilots_in_line) <= 1)
 
-        # all pilots must have turn time between sorties 
+    def _constraint_min_turn_time_between_flight_and_flight(self, model: cp_model.CpModel):
         #TODO: write unit tests for this!
         for p in self._personnel:
             for curr_line in self._lines:
                 csp_allowed_lines = [self._flying_schedule_vars[(stepped_line.number, p.prsn_id)] for stepped_line in self._lines if curr_line.is_conflict(stepped_line)]
                 model.Add(sum(csp_allowed_lines) <= 1).OnlyEnforceIf(self._flying_schedule_vars[(curr_line.number, p.prsn_id)])
+    
+    def _constraint_min_turn_time_between_duty_and_flight(self, model: cp_model.CpModel):
+        #TODO: test this!!!
+        for p in self._personnel:
+            for d in self._duties:
+                fl = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if l.is_conflict(d)]
+                model.Add(sum(fl) == 0).OnlyEnforceIf(self._duty_schedule_vars[(d.name, p.prsn_id)])
 
-        # all pilots have max turn time of 4+15
+    def _constraint_min_turn_time_between_flight_and_duty(self, model: cp_model.CpModel):
+        #TODO: test this!!!
+        for p in self._personnel:
+            for l in self._lines:
+                fd = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._duties if d.is_conflict(l)]
+                model.Add(sum(fd) == 0).OnlyEnforceIf(self._flying_schedule_vars[(l.number, p.prsn_id)])
+
+    def _constraint_max_turn_time_between_flight_and_flight(self, model: cp_model.CpModel):
         #TODO: write unit tests for this
         for p in self._personnel:
             for line in self._lines:
@@ -256,7 +273,31 @@ class ScheduleSolver:
                 csp_forbidden_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if has_turn_time(line, l, timedelta(hours = 4, minutes = 15))]
                 model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._flying_schedule_vars[(line.number, p.prsn_id)])
 
+    def _constraint_personnel_qualified_for_duty(self, model: cp_model.CpModel):
+        for duty in self._duties:
+            duties_to_be_scheduled = [self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._personnel if p.is_qualified_for_duty(duty.type)]
+            model.Add(sum(duties_to_be_scheduled) == 1)
 
+    def _constraint_personnel_qualified_for_PIT(self, model: cp_model.CpModel):
+        for p in self._personnel:
+            forbidden_flights = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if (l.flight_org == FlightOrg.X and not p.is_qualified_for_flight(FlightQual.PIT))]
+            model.Add(sum(forbidden_flights) == 0)
+
+    def _add_constraints(self, model: cp_model.CpModel):
+        self._constraint_absence_requests(model)
+        self._constraint_max_num_events(model)
+        self._constraint_max_duty_day(model)
+        self._constraint_duty_filled_with_single_person(model)
+        self._constraint_flight_filled_with_at_most_single_person(model)
+        self._constraint_min_turn_time_between_duty_and_duty(model)
+        self._constraint_min_turn_time_between_flight_and_flight(model)
+        self._constraint_min_turn_time_between_duty_and_flight(model)
+        self._constraint_min_turn_time_between_flight_and_duty(model)
+        self._constraint_max_turn_time_between_flight_and_flight(model)
+        self._constraint_personnel_qualified_for_duty(model)
+        self._constraint_personnel_qualified_for_PIT(model)
+
+    def _add_objective(self, model: cp_model.CpModel):
         # maximize the lines filled by IPs
         lines_filled = []
         for l in self._lines:
