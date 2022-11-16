@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
-from scheduler import ScheduleModel, ScheduleSolver, Person, Line, Duty, DutyQual, has_turn_time
+from scheduler import ScheduleModel, ScheduleSolver, Person, FlightOrg, Line, Duty, DutyQual, has_turn_time
 
 def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_solution():
     lines = []
@@ -69,7 +69,7 @@ def test_given_single_duty_and_single_unqualified_person_when_solved_then_duty_i
     assert solution == {}
 
 def test_given_single_line_and_single_person_when_solved_then_line_is_filled():
-    lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
+    lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
     duties = []
     person = Person(1, "LastName", "FirstName")
     personnel = [person]
@@ -82,7 +82,7 @@ def test_given_single_line_and_single_person_when_solved_then_line_is_filled():
     assert solution == {lines[0].number: personnel[0]}
 
 def test_given_single_pilot_with_turn_time_when_solved_then_optimal_solution():
-    lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
+    lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2,FlightOrg.M, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
     duties = []
     person = Person(1, "LastName", "FirstName")
     personnel = [person]
@@ -95,7 +95,7 @@ def test_given_single_pilot_with_turn_time_when_solved_then_optimal_solution():
     assert solution == {lines[0].number: personnel[0], lines[1].number: personnel[0]}
 
 def test_given_multiple_pilots_with_turn_time_when_solved_then_optimal_solution():
-    lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 8:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(3, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(4, datetime.strptime('7/29/2022 12:00:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
+    lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, FlightOrg.O, datetime.strptime('7/29/2022 8:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(3, FlightOrg.P, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(4, FlightOrg.P, datetime.strptime('7/29/2022 12:00:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
     duties = []
     personnel = [Person(1, "LastName", "FirstName"), Person(2, "LastName", "FirstName")]
     absences = []
@@ -107,7 +107,7 @@ def test_given_multiple_pilots_with_turn_time_when_solved_then_optimal_solution(
     assert ((solution == {lines[0].number: personnel[0], lines[1].number: personnel[1], lines[2].number: personnel[0], lines[3].number: personnel[1]}) or (solution == {lines[0].number: personnel[1], lines[1].number: personnel[0], lines[2].number: personnel[1], lines[3].number: personnel[0]}))
 
 def test_given_single_pilot_without_turn_time_when_solved_then_optimal_solution_with_empty_line():
-    lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 11:29:59 AM', '%m/%d/%Y %I:%M:%S %p'))] 
+    lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, FlightOrg.O, datetime.strptime('7/29/2022 11:29:59 AM', '%m/%d/%Y %I:%M:%S %p'))] 
     duties = []
     personnel = [Person(1, "LastName", "FirstName")]
     absences = []
@@ -119,14 +119,14 @@ def test_given_single_pilot_without_turn_time_when_solved_then_optimal_solution_
     assert ((solution == {lines[0].number: None, lines[1].number: personnel[0]}) or (solution == {lines[0].number: personnel[0], lines[1].number: None}))
 
 def test_given_commitments_with_time_delta_exceeded_when_run_returns_true():
-    lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 12:14:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
+    lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, FlightOrg.O, datetime.strptime('7/29/2022 12:14:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
 
     is_exceeded = has_turn_time(lines[0], lines[1], timedelta(hours = 4, minutes = 15))
 
     assert is_exceeded == True
 
 def test_given_commitments_with_time_delta_not_exceeded_when_run_returns_false():
-    lines = [Line(1, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, datetime.strptime('7/29/2022 12:15:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
+    lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, FlightOrg.N, datetime.strptime('7/29/2022 12:15:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
 
     is_exceeded = has_turn_time(lines[0], lines[1], timedelta(hours = 4, minutes = 15))
 

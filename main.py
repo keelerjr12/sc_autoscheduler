@@ -110,7 +110,12 @@ def parse_absence_requests(str: str):
 def print_solution(solution, duties, lines):
     for duty in duties:
         person = solution[duty.name]
-        print(duty.name + ': ' + person._last_name, person._first_name)
+        print(duty.name + ': ', end='')
+
+        if solution[duty.name] != None:
+            print ("%s, %s" % (person._last_name, person._first_name), end='')
+            
+        print()
 
     for line in lines:
         person = solution[line.number]
@@ -139,7 +144,10 @@ def run():
     solver = ScheduleSolver(personnel, lines, duties, absences)
     (status, solution) = solver.solve()
 
-    print_solution(solution, duties, lines)
+    if (status == cp_model.OPTIMAL):
+        print_solution(solution, duties, lines)
+    else:
+        print("Solution is infeasible")
 
     print("Exiting Run")
 

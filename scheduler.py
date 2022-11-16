@@ -43,8 +43,10 @@ class Person:
         return (self._flight_quals & type) != (FlightQual.PIT & ~FlightQual.PIT) ## TODO: This is a very hacky way for bitwise 0
 
 class Commitment(ABC):
-    def is_conflict(self, other) -> bool:
-        return other.end_dt() > self.start_dt() and other.start_dt() < self.end_dt()
+    #    TODO: issue with absence request; need to migrate to entity class
+    #    @abstractmethod
+    #    def id(self):
+    #        pass
 
     @abstractmethod
     def start_dt(self) -> datetime:
@@ -53,6 +55,10 @@ class Commitment(ABC):
     @abstractmethod
     def end_dt(self) -> datetime:
         pass
+
+    def is_conflict(self, other) -> bool:
+        return other.end_dt() > self.start_dt() and other.start_dt() < self.end_dt()
+
 
 class FlightOrg(Enum):
     M = auto()
@@ -77,6 +83,9 @@ class Line(Commitment):
         self.time_brief = time_takeoff - timedelta(hours=1, minutes=15)
         self.time_debrief_end = self.time_brief + timedelta(hours=3, minutes=30)
 
+    def id(self):
+        return self.number
+
     def start_dt(self) -> datetime:
         return self.time_brief
 
@@ -94,6 +103,9 @@ class Duty(Commitment):
         self.type = type
         self._sign_in_dt = sign_in_dt
         self._sign_out_dt = sign_out_dt
+
+    def id(self):
+        return self.name
 
     def start_dt(self) -> datetime:
         return self._sign_in_dt
@@ -155,8 +167,7 @@ def get_duties_conflicting_with_duty(duty: Duty, duties: list[Duty]) -> list[Dut
     return conflicting_duties
 
 class ScheduleSolver:
-    _flying_schedule_vars = {}
-    _duty_schedule_vars = {}
+    _commit_vars = {}
     
     def __init__(self, personnel, lines, duties, absences):
         self._personnel = personnel
@@ -180,107 +191,72 @@ class ScheduleSolver:
         return (status, self._get_solution(solver))
 
     def _add_variables(self, model: cp_model.CpModel):
-        # create all duty variables
-        for duty in self._duties:
-            for person in self._personnel:
-                self._duty_schedule_vars[(duty.name, person.prsn_id)] =  model.NewBoolVar('duty_s%s%i' % (duty.name, person.prsn_id))
-        
-        # create all flying line variables
-        for curr_line in self._lines:
+        commits = self._duties + self._lines
+        for c in commits:
             for p in self._personnel:
-                self._flying_schedule_vars[(curr_line.number, p.prsn_id)] = model.NewBoolVar('line_n%ipilot_n%i' % (curr_line.number, p.prsn_id))
-
+                self._commit_vars[(c.id(), p.prsn_id)] = model.NewBoolVar('commit_n%spilot_n%i' % (c.id(), p.prsn_id))
+            
     def _constraint_absence_requests(self, model: cp_model.CpModel):
+        commits = self._duties + self._lines
+
         for p in self._personnel:
             persons_absence_requests = [ar for ar in self._absences if ar.assigned_to(p)]
     
             for ar in persons_absence_requests:
-                csp_conflicting_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if l.is_conflict(ar)]
-                model.Add(sum(csp_conflicting_lines) == 0)
+                csp_conflicts = [self._commit_vars[(c.id(), p.prsn_id)] for c in commits if c.is_conflict(ar)]
+                model.Add(sum(csp_conflicts) == 0)
 
     def _constraint_max_num_events(self, model: cp_model.CpModel):
         MAX_NUM_EVENTS_PER_PERSON = 3
+        commits = self._duties + self._lines
+
         for p in self._personnel:
-            events_per_person = []
-
-            for curr_line in self._lines:
-                events_per_person.append(self._flying_schedule_vars[(curr_line.number, p.prsn_id)])
-
-            for duty in self._duties:
-                events_per_person.append(self._duty_schedule_vars[(duty.name, p.prsn_id)])
-
+            events_per_person = [self._commit_vars[(c.id(), p.prsn_id)] for c in commits]
             model.Add(sum(events_per_person) <= MAX_NUM_EVENTS_PER_PERSON)
 
     def _constraint_max_duty_day(self, model: cp_model.CpModel):
         #TODO: test this!
+        commits = self._duties + self._lines
+
         for p in self._personnel:
-            for duty in self._duties:
-                csp_forbidden_duties = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._duties if duty_day_exceeded(duty, d)]
-                csp_forbidden_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if duty_day_exceeded(duty, l)]
-                model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._duty_schedule_vars[(duty.name, p.prsn_id)])
-            
-            for line in self._lines:
-                csp_forbidden_duties = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._duties if duty_day_exceeded(line, d)]
-                csp_forbidden_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if duty_day_exceeded(line, l)]
-                model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._flying_schedule_vars[(line.number, p.prsn_id)])
+            for outer in commits:
+                csp_conflicts = [self._commit_vars[(inner.id(), p.prsn_id)] for inner in commits if duty_day_exceeded(outer, inner)]
+                model.Add(sum(csp_conflicts) == 0).OnlyEnforceIf(self._commit_vars[(outer.id(), p.prsn_id)])
 
     def _constraint_duty_filled_with_single_person(self, model: cp_model.CpModel):
         for duty in self._duties:
-            model.AddExactlyOne(self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._personnel)
+            model.AddExactlyOne(self._commit_vars[(duty.id(), p.prsn_id)] for p in self._personnel)
 
     def _constraint_flight_filled_with_at_most_single_person(self, model: cp_model.CpModel):
         for curr_line in self._lines:
-            pilots_in_line = [self._flying_schedule_vars[(curr_line.number, p.prsn_id)] for p in self._personnel]
+            pilots_in_line = [self._commit_vars[(curr_line.id(), p.prsn_id)] for p in self._personnel]
             model.Add(sum(pilots_in_line) <= 1)
             
-    def _constraint_min_turn_time_between_duty_and_duty(self, model: cp_model.CpModel):
-        # TODO: refactor/test this!
-        for duty in self._duties:
-            conflicting_duties = get_duties_conflicting_with_duty(duty, self._duties)
-    
-            for p in self._personnel:
-                conflicting_duties_for_person = [self._duty_schedule_vars[(cd.name, p.prsn_id)] for cd in conflicting_duties]
-    
-                model.Add(sum(conflicting_duties_for_person) <= 1)
-
-    def _constraint_min_turn_time_between_flight_and_flight(self, model: cp_model.CpModel):
-        #TODO: write unit tests for this!
-        for p in self._personnel:
-            for curr_line in self._lines:
-                csp_allowed_lines = [self._flying_schedule_vars[(stepped_line.number, p.prsn_id)] for stepped_line in self._lines if curr_line.is_conflict(stepped_line)]
-                model.Add(sum(csp_allowed_lines) <= 1).OnlyEnforceIf(self._flying_schedule_vars[(curr_line.number, p.prsn_id)])
-    
-    def _constraint_min_turn_time_between_duty_and_flight(self, model: cp_model.CpModel):
+    def _constraint_min_turn_time_between_commitments(self, model: cp_model.CpModel):
         #TODO: test this!!!
-        for p in self._personnel:
-            for d in self._duties:
-                fl = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if l.is_conflict(d)]
-                model.Add(sum(fl) == 0).OnlyEnforceIf(self._duty_schedule_vars[(d.name, p.prsn_id)])
+        commits = self._duties + self._lines
 
-    def _constraint_min_turn_time_between_flight_and_duty(self, model: cp_model.CpModel):
-        #TODO: test this!!!
         for p in self._personnel:
-            for l in self._lines:
-                fd = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._duties if d.is_conflict(l)]
-                model.Add(sum(fd) == 0).OnlyEnforceIf(self._flying_schedule_vars[(l.number, p.prsn_id)])
+            for outer in commits:
+                conflicts = [self._commit_vars[(inner.id(), p.prsn_id)] for inner in commits if inner.is_conflict(outer)]
+                model.Add(sum(conflicts) <= 1).OnlyEnforceIf(self._commit_vars[(outer.id(), p.prsn_id)])
 
     def _constraint_max_turn_time_between_flight_and_flight(self, model: cp_model.CpModel):
         #TODO: write unit tests for this
         for p in self._personnel:
             for line in self._lines:
                 csp_forbidden_duties = []
-                #csp_forbidden_duties = [self._duty_schedule_vars[(d.name, p.prsn_id)] for d in self._duties if has_turn_time(line, d, timedelta(hours = 4, minutes = 15))]
-                csp_forbidden_lines = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if has_turn_time(line, l, timedelta(hours = 4, minutes = 15))]
-                model.Add(sum(csp_forbidden_duties) + sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._flying_schedule_vars[(line.number, p.prsn_id)])
+                csp_forbidden_lines = [self._commit_vars[(l.id(), p.prsn_id)] for l in self._lines if has_turn_time(line, l, timedelta(hours = 4, minutes = 15))]
+                model.Add(sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._commit_vars[(line.id(), p.prsn_id)])
 
     def _constraint_personnel_qualified_for_duty(self, model: cp_model.CpModel):
         for duty in self._duties:
-            duties_to_be_scheduled = [self._duty_schedule_vars[(duty.name, p.prsn_id)] for p in self._personnel if p.is_qualified_for_duty(duty.type)]
+            duties_to_be_scheduled = [self._commit_vars[(duty.id(), p.prsn_id)] for p in self._personnel if p.is_qualified_for_duty(duty.type)]
             model.Add(sum(duties_to_be_scheduled) == 1)
 
     def _constraint_personnel_qualified_for_PIT(self, model: cp_model.CpModel):
         for p in self._personnel:
-            forbidden_flights = [self._flying_schedule_vars[(l.number, p.prsn_id)] for l in self._lines if (l.flight_org == FlightOrg.X and not p.is_qualified_for_flight(FlightQual.PIT))]
+            forbidden_flights = [self._commit_vars[(l.id(), p.prsn_id)] for l in self._lines if (l.flight_org == FlightOrg.X and not p.is_qualified_for_flight(FlightQual.PIT))]
             model.Add(sum(forbidden_flights) == 0)
 
     def _add_constraints(self, model: cp_model.CpModel):
@@ -289,10 +265,7 @@ class ScheduleSolver:
         self._constraint_max_duty_day(model)
         self._constraint_duty_filled_with_single_person(model)
         self._constraint_flight_filled_with_at_most_single_person(model)
-        self._constraint_min_turn_time_between_duty_and_duty(model)
-        self._constraint_min_turn_time_between_flight_and_flight(model)
-        self._constraint_min_turn_time_between_duty_and_flight(model)
-        self._constraint_min_turn_time_between_flight_and_duty(model)
+        self._constraint_min_turn_time_between_commitments(model)
         self._constraint_max_turn_time_between_flight_and_flight(model)
         self._constraint_personnel_qualified_for_duty(model)
         self._constraint_personnel_qualified_for_PIT(model)
@@ -302,7 +275,7 @@ class ScheduleSolver:
         lines_filled = []
         for l in self._lines:
             for p in self._personnel:
-                lines_filled.append(self._flying_schedule_vars[(l.number, p.prsn_id)])
+                lines_filled.append(self._commit_vars[(l.id(), p.prsn_id)])
 
         model.Maximize(sum(lines_filled))
 
@@ -310,15 +283,17 @@ class ScheduleSolver:
         solution = {}
 
         for d in self._duties:
+            solution[d.name] = None
+
             for p in self._personnel:
-                if solver.Value(self._duty_schedule_vars[(d.name, p.prsn_id)]):
+                if solver.Value(self._commit_vars[(d.name, p.prsn_id)]):
                     solution[d.name] = p
 
         for l in self._lines:
             solution[l.number] = None
 
             for p in self._personnel:
-                if solver.Value(self._flying_schedule_vars[(l.number, p.prsn_id)]):
+                if solver.Value(self._commit_vars[(l.number, p.prsn_id)]):
                     solution[l.number] = p
 
         return solution
