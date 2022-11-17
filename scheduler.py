@@ -3,6 +3,14 @@ from datetime import datetime, timedelta
 from enum import Enum, Flag, auto
 from ortools.sat.python import cp_model
 
+class FlightOrg(Enum):
+    M = auto()
+    N = auto()
+    O = auto()
+    P = auto()
+    X = auto()
+    CHECK = auto()
+
 class DutyQual(Flag):
     CONTROLLER = auto()
     OBSERVER = auto()
@@ -22,13 +30,20 @@ class Person:
     _last_name: str
     _duty_quals: DutyQual
     _flight_quals: FlightQual 
+    _assigned_org: FlightOrg | None
+    _ausm_tier: int
 
-    def __init__(self, prsn_id: int, last_name: str, first_name: str):
+    def __init__(self, prsn_id: int, last_name: str, first_name: str, ausm_tier: int):
         self.prsn_id = prsn_id
         self._first_name = first_name
         self._last_name = last_name
         self._duty_quals: DutyQual = DutyQual.CONTROLLER & DutyQual.OBSERVER
         self._flight_quals: FlightQual = FlightQual.PIT & ~FlightQual.PIT
+        self._assigned_org = None
+        self._ausm_tier = ausm_tier
+
+    def assign_to(self, org: FlightOrg | None):
+        self._assigned_org = org
 
     def qual_for_duty(self, type: DutyQual):
         self._duty_quals = self._duty_quals | type
@@ -60,12 +75,6 @@ class Commitment(ABC):
         return other.end_dt() > self.start_dt() and other.start_dt() < self.end_dt()
 
 
-class FlightOrg(Enum):
-    M = auto()
-    N = auto()
-    O = auto()
-    P = auto()
-    X = auto()
 
 class Line(Commitment):
     number: int
@@ -245,7 +254,6 @@ class ScheduleSolver:
         #TODO: write unit tests for this
         for p in self._personnel:
             for line in self._lines:
-                csp_forbidden_duties = []
                 csp_forbidden_lines = [self._commit_vars[(l.id(), p.prsn_id)] for l in self._lines if has_turn_time(line, l, timedelta(hours = 4, minutes = 15))]
                 model.Add(sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._commit_vars[(line.id(), p.prsn_id)])
 
@@ -271,13 +279,21 @@ class ScheduleSolver:
         self._constraint_personnel_qualified_for_PIT(model)
 
     def _add_objective(self, model: cp_model.CpModel):
-        # maximize the lines filled by IPs
+        # minimize the unfilled lines
         lines_filled = []
         for l in self._lines:
             for p in self._personnel:
                 lines_filled.append(self._commit_vars[(l.id(), p.prsn_id)])
 
-        model.Maximize(sum(lines_filled))
+        # minimize misassigned IPs by flight org
+        lines_with_misassigned = []
+        for l in self._lines:
+            for p in self._personnel:
+                if (p._assigned_org != None and p._assigned_org != l.flight_org):
+                    lines_with_misassigned.append(self._commit_vars[(l.id(), p.prsn_id)])
+
+        model.Minimize((len(self._lines) - sum(lines_filled)) + sum(lines_with_misassigned))
+         
 
     def _get_solution(self, solver: cp_model.CpSolver):
         solution = {}

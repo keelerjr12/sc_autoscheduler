@@ -11,7 +11,7 @@ def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_s
     duties = [duty1, duty2, duty3]
     absences = []
 
-    controller = Person(1, "LastName", "FirstName")
+    controller = Person(1, "LastName", "FirstName", 4)
     controller.qual_for_duty(DutyQual.CONTROLLER)
     personnel = [controller]
 
@@ -30,7 +30,7 @@ def test_given_greater_than_max_num_duties_single_qualified_person_when_solved_t
     duties = [duty1, duty2, duty3, duty4]
     absences = []
 
-    controller = Person(1, "LastName", "FirstName")
+    controller = Person(1, "LastName", "FirstName", 4)
     controller.qual_for_duty(DutyQual.CONTROLLER)
     personnel = [controller]
 
@@ -45,7 +45,7 @@ def test_given_single_duty_and_single_qualified_person_when_solved_then_duty_is_
     lines = []
     duties = [Duty("Tinder 1 Controller", DutyQual.CONTROLLER, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 10:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
 
-    controller = Person(1, "LastName", "FirstName")
+    controller = Person(1, "LastName", "FirstName", 4)
     controller.qual_for_duty(DutyQual.CONTROLLER)
     personnel = [controller]
     absences = []
@@ -59,7 +59,7 @@ def test_given_single_duty_and_single_qualified_person_when_solved_then_duty_is_
 def test_given_single_duty_and_single_unqualified_person_when_solved_then_duty_is_unfilled():
     lines = []
     duties = [Duty("Tinder 1 Controller", DutyQual.CONTROLLER, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 10:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
-    personnel = [Person(1, "LastName", "FirstName")]
+    personnel = [Person(1, "LastName", "FirstName", 4)]
     absences = []
 
     solver = ScheduleSolver(personnel, lines, duties, absences)
@@ -71,7 +71,7 @@ def test_given_single_duty_and_single_unqualified_person_when_solved_then_duty_i
 def test_given_single_line_and_single_person_when_solved_then_line_is_filled():
     lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
     duties = []
-    person = Person(1, "LastName", "FirstName")
+    person = Person(1, "LastName", "FirstName", 4)
     personnel = [person]
     absences = []
 
@@ -84,7 +84,7 @@ def test_given_single_line_and_single_person_when_solved_then_line_is_filled():
 def test_given_single_pilot_with_turn_time_when_solved_then_optimal_solution():
     lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2,FlightOrg.M, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
     duties = []
-    person = Person(1, "LastName", "FirstName")
+    person = Person(1, "LastName", "FirstName", 4)
     personnel = [person]
     absences = []
 
@@ -97,7 +97,7 @@ def test_given_single_pilot_with_turn_time_when_solved_then_optimal_solution():
 def test_given_multiple_pilots_with_turn_time_when_solved_then_optimal_solution():
     lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, FlightOrg.O, datetime.strptime('7/29/2022 8:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(3, FlightOrg.P, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(4, FlightOrg.P, datetime.strptime('7/29/2022 12:00:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
     duties = []
-    personnel = [Person(1, "LastName", "FirstName"), Person(2, "LastName", "FirstName")]
+    personnel = [Person(1, "LastName", "FirstName", 3), Person(2, "LastName", "FirstName", 4)]
     absences = []
 
     solver = ScheduleSolver(personnel, lines, duties, absences)
@@ -109,7 +109,7 @@ def test_given_multiple_pilots_with_turn_time_when_solved_then_optimal_solution(
 def test_given_single_pilot_without_turn_time_when_solved_then_optimal_solution_with_empty_line():
     lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, FlightOrg.O, datetime.strptime('7/29/2022 11:29:59 AM', '%m/%d/%Y %I:%M:%S %p'))] 
     duties = []
-    personnel = [Person(1, "LastName", "FirstName")]
+    personnel = [Person(1, "LastName", "FirstName", 4)]
     absences = []
 
     solver = ScheduleSolver(personnel, lines, duties, absences)

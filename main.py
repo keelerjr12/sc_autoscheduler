@@ -14,7 +14,14 @@ def parse_csv(file: str, parse_fn):
         reader = csv.reader(csvfile, delimiter=',')
         next(reader, None)
 
-        all_objs = [parse_fn(row) for row in reader]
+        for row in reader:
+            obj = parse_fn(row)
+
+            # need to flatten a list if it's returned from the parsing function
+            if type(obj) is list:
+                all_objs = all_objs + obj
+            else:
+                all_objs.append(obj)
 
     return all_objs
 
@@ -53,6 +60,8 @@ class LOX_COL(IntEnum):
     SOF = 13
     OPS_SUP = 14
     PIT_IP = 19
+    AUSM_TIER = 29
+    ASSIGNED_FLIGHT = 30
 
 def is_qualified(qual_row, qual: LOX_COL) -> bool:
     LOX_val = qual_row[qual]
@@ -62,8 +71,13 @@ def parse_personnel(str: str):
     last_name = str[LOX_COL.LAST_NAME]
     first_name = str[LOX_COL.FIRST_NAME]
     prsn_id = int(str[LOX_COL.PRSN_ID])
+    assigned_flight = str[LOX_COL.ASSIGNED_FLIGHT]
+    ausm_tier = int(str[LOX_COL.AUSM_TIER])
 
-    p = Person(prsn_id, last_name, first_name)
+    p = Person(prsn_id, last_name, first_name, ausm_tier)
+
+    if (assigned_flight != ""):
+        p.assign_to(FlightOrg[assigned_flight.upper()])
     
     if is_qualified(str, LOX_COL.CONTROLLER) == True:
         p.qual_for_duty(DutyQual.CONTROLLER)
@@ -93,19 +107,16 @@ def parse_absence_requests(str: str):
     recur_end_dt = datetime.strptime(str[11], '%m/%d/%Y %I:%M:%S %p')
     weekday_ptn = str[12]
 
-###    print(prsn_id, start_dt, end_dt, recur_end_dt)
-###    if (weekday_ptn == ""):
-###        return AbsenceRequest(prsn_id, start_dt, end_dt)
-###    else:
-###        weekday_bit_ptn = int(weekday_ptn)
-###
-###        for single_date in daterange(start_dt, recur_end_dt):
-###                if ((1 << single_date.isoweekday()) & weekday_bit_ptn):
-###                    print(single_date.strftime("%Y-%m-%d, %H-%M-%S"))
-###    ######## TODO: finish processing absence requests w/time deltas for end date
-###    
-    return AbsenceRequest(prsn_id, start_dt, end_dt)
+    if (weekday_ptn == ""):
+        return AbsenceRequest(prsn_id, start_dt, end_dt)
 
+    weekday_bit_ptn = int(weekday_ptn)
+
+    ars = []
+    for single_date in daterange(start_dt, recur_end_dt):
+            if ((1 << single_date.isoweekday()) & weekday_bit_ptn):
+                ars.append(AbsenceRequest(prsn_id, single_date, end_dt));
+    return ars
 
 def print_solution(solution, duties, lines):
     for duty in duties:
