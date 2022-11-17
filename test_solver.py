@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
-from scheduler import ScheduleModel, ScheduleSolver, Person, FlightOrg, Line, Duty, DutyQual, has_turn_time
+from scheduler import ScheduleSolver, Person, FlightOrg, Line, Duty, DutyQual, has_turn_time
 
 def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_solution():
     lines = []

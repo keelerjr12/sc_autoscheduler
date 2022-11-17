@@ -74,8 +74,6 @@ class Commitment(ABC):
     def is_conflict(self, other) -> bool:
         return other.end_dt() > self.start_dt() and other.start_dt() < self.end_dt()
 
-
-
 class Line(Commitment):
     number: int
     flight_org: FlightOrg
@@ -144,17 +142,28 @@ class AbsenceRequest(Commitment):
     def assigned_to(self, prsn: Person) -> bool:
         return self._prsn_id == prsn.prsn_id
 
-class ScheduleModel:
-    lines: list[Line] = []
-    duties: list[Duty] = []
-    personnel: list[Person] = []
-    absences: list[AbsenceRequest] = []
-    
-    def __init__(self, lines: list[Line], duties: list[Duty], personnel: list[Person], absences: list[AbsenceRequest]):
-        self.lines = lines
-        self.duties = duties
-        self.personnel = personnel
-        self.absences = absences
+class Day:
+    date: datetime.date
+    lines: list[Line]
+    duties: list[Duty]
+
+    def __init__(self, date: datetime.date):
+        self.date = date
+
+###### TODO: line has no datetime object so need to add and then handle parsing
+class ShellSchedule:
+    days = list[Day]
+    _dates_used = {}
+
+    def __init__(self, lines, duties):
+        for l in lines:
+            date = l.start_dt.date()
+            print(date)
+            if (l.start_dt.date() not in self._dates_used):
+                self._dates_used[l.start_dt.date()] = True
+                self.days.append(Day(l.start_dt.date()))
+
+        print(self._dates_used.keys())
 
 def duty_day_exceeded(c1: Commitment, c2: Commitment) -> bool:
     td1:timedelta = c1.end_dt() - c2.start_dt()
@@ -178,10 +187,9 @@ def get_duties_conflicting_with_duty(duty: Duty, duties: list[Duty]) -> list[Dut
 class ScheduleSolver:
     _commit_vars = {}
     
-    def __init__(self, personnel, lines, duties, absences):
+    def __init__(self, personnel: list[Person], shell: ShellSchedule, absences):
         self._personnel = personnel
-        self._lines = lines
-        self._duties = duties
+        self._shell = shell
         self._absences = absences
 
     def solve(self) -> bool:
@@ -200,11 +208,12 @@ class ScheduleSolver:
         return (status, self._get_solution(solver))
 
     def _add_variables(self, model: cp_model.CpModel):
-        commits = self._duties + self._lines
-        for c in commits:
-            for p in self._personnel:
-                self._commit_vars[(c.id(), p.prsn_id)] = model.NewBoolVar('commit_n%spilot_n%i' % (c.id(), p.prsn_id))
-            
+        #commits = self._duties + self._lines
+        #for c in commits:
+        #    for p in self._personnel:
+        #        self._commit_vars[(c.id(), p.prsn_id)] = model.NewBoolVar('commit_n%spilot_n%i' % (c.id(), p.prsn_id))
+        pass
+
     def _constraint_absence_requests(self, model: cp_model.CpModel):
         commits = self._duties + self._lines
 
@@ -268,48 +277,50 @@ class ScheduleSolver:
             model.Add(sum(forbidden_flights) == 0)
 
     def _add_constraints(self, model: cp_model.CpModel):
-        self._constraint_absence_requests(model)
-        self._constraint_max_num_events(model)
-        self._constraint_max_duty_day(model)
-        self._constraint_duty_filled_with_single_person(model)
-        self._constraint_flight_filled_with_at_most_single_person(model)
-        self._constraint_min_turn_time_between_commitments(model)
-        self._constraint_max_turn_time_between_flight_and_flight(model)
-        self._constraint_personnel_qualified_for_duty(model)
-        self._constraint_personnel_qualified_for_PIT(model)
+        pass
+        #self._constraint_absence_requests(model)
+        #self._constraint_max_num_events(model)
+        #self._constraint_max_duty_day(model)
+        #self._constraint_duty_filled_with_single_person(model)
+        #self._constraint_flight_filled_with_at_most_single_person(model)
+        #self._constraint_min_turn_time_between_commitments(model)
+        #self._constraint_max_turn_time_between_flight_and_flight(model)
+        #self._constraint_personnel_qualified_for_duty(model)
+        #self._constraint_personnel_qualified_for_PIT(model)
 
     def _add_objective(self, model: cp_model.CpModel):
+        pass
         # minimize the unfilled lines
-        lines_filled = []
-        for l in self._lines:
-            for p in self._personnel:
-                lines_filled.append(self._commit_vars[(l.id(), p.prsn_id)])
+        #lines_filled = []
+        #for l in self._lines:
+        #    for p in self._personnel:
+        #        lines_filled.append(self._commit_vars[(l.id(), p.prsn_id)])
 
-        # minimize misassigned IPs by flight org
-        lines_with_misassigned = []
-        for l in self._lines:
-            for p in self._personnel:
-                if (p._assigned_org != None and p._assigned_org != l.flight_org):
-                    lines_with_misassigned.append(self._commit_vars[(l.id(), p.prsn_id)])
+        ## minimize misassigned IPs by flight org
+        #lines_with_misassigned = []
+        #for l in self._lines:
+        #    for p in self._personnel:
+        #        if (p._assigned_org != None and p._assigned_org != l.flight_org):
+        #            lines_with_misassigned.append(self._commit_vars[(l.id(), p.prsn_id)])
 
-        model.Minimize((len(self._lines) - sum(lines_filled)) + sum(lines_with_misassigned))
+        #model.Minimize((len(self._lines) - sum(lines_filled)) + sum(lines_with_misassigned))
          
 
     def _get_solution(self, solver: cp_model.CpSolver):
         solution = {}
 
-        for d in self._duties:
-            solution[d.name] = None
+        #for d in self._duties:
+        #    solution[d.name] = None
 
-            for p in self._personnel:
-                if solver.Value(self._commit_vars[(d.name, p.prsn_id)]):
-                    solution[d.name] = p
+        #    for p in self._personnel:
+        #        if solver.Value(self._commit_vars[(d.name, p.prsn_id)]):
+        #            solution[d.name] = p
 
-        for l in self._lines:
-            solution[l.number] = None
+        #for l in self._lines:
+        #    solution[l.number] = None
 
-            for p in self._personnel:
-                if solver.Value(self._commit_vars[(l.number, p.prsn_id)]):
-                    solution[l.number] = p
+        #    for p in self._personnel:
+        #        if solver.Value(self._commit_vars[(l.number, p.prsn_id)]):
+        #            solution[l.number] = p
 
         return solution
