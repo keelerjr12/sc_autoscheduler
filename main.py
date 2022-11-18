@@ -118,25 +118,26 @@ def parse_absence_requests(str: str):
                 ars.append(AbsenceRequest(prsn_id, single_date, end_dt));
     return ars
 
-def print_solution(solution, duties, lines):
-    for duty in duties:
-        person = solution[duty.name]
-        print(duty.name + ': ', end='')
+def print_solution(solution, shell: ShellSchedule):
+    for day in shell.days:
+        for duty in day.duties:
+            person = solution[duty.name]
+            print(duty.name + ': ', end='')
 
-        if solution[duty.name] != None:
-            print ("%s, %s" % (person._last_name, person._first_name), end='')
+            if solution[duty.name] != None:
+                print ("%s, %s" % (person._last_name, person._first_name), end='')
             
-        print()
+            print()
 
-    for line in lines:
-        person = solution[line.number]
+        for line in day.lines:
+            person = solution[line.number]
 
-        print('[%i][%s] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.flight_org, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')), end='')
+            print('[%i][%s] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.flight_org, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')), end='')
 
-        if solution[line.number] != None:
-            print ("%s, %s" % (person._last_name, person._first_name), end='')
-            
-        print()
+            if solution[line.number] != None:
+                print ("%s, %s" % (person._last_name, person._first_name), end='')
+                
+            print()
 def run():
     print("Entering Run")
 
@@ -158,7 +159,7 @@ def run():
     (status, solution) = solver.solve()
 
     if (status == cp_model.OPTIMAL):
-        print_solution(solution, duties, lines)
+        print_solution(solution, shell)
     else:
         print("Solution is infeasible")
 
