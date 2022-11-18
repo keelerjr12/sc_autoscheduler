@@ -99,7 +99,9 @@ def parse_personnel(str: str):
 def daterange(start_date, end_date):
     for n in range(int((end_date - start_date).days + 1)):
         yield start_date + timedelta(n)
-    
+
+
+#TODO: needs refactoring!    
 def parse_absence_requests(str: str):
     prsn_id = int(str[2])
     start_dt = datetime.strptime(str[8], '%m/%d/%Y %I:%M:%S %p')
@@ -112,10 +114,17 @@ def parse_absence_requests(str: str):
 
     weekday_bit_ptn = int(weekday_ptn)
 
+    init_dt = True
     ars = []
-    for single_date in daterange(start_dt, recur_end_dt):
-            if ((1 << single_date.isoweekday()) & weekday_bit_ptn):
-                ars.append(AbsenceRequest(prsn_id, single_date, end_dt));
+    for single_dt in daterange(start_dt, recur_end_dt):
+
+        if (init_dt == True):
+            ars.append(AbsenceRequest(prsn_id, single_dt, end_dt))
+            init_dt = False
+        elif ((1 << single_dt.isoweekday()) & weekday_bit_ptn):
+            new_end_dt = end_dt + timedelta(days = (single_dt - start_dt).days)
+            ars.append(AbsenceRequest(prsn_id, single_dt, new_end_dt))
+
     return ars
 
 def print_solution(solution, shell: ShellSchedule):

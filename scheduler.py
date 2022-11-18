@@ -106,6 +106,8 @@ class Duty(Commitment):
     _sign_out_dt: datetime
 
     def __init__(self, name: str, type: DutyQual, sign_in_dt: datetime, sign_out_dt: datetime):
+        assert(sign_in_dt <= sign_out_dt)
+
         self.name = name
         self.type = type
         self._sign_in_dt = sign_in_dt
@@ -126,6 +128,8 @@ class AbsenceRequest(Commitment):
     _end_dt: datetime
 
     def __init__(self, prsn_id: int, start_dt: datetime, end_dt: datetime):
+        assert(start_dt <= end_dt)
+
         self._prsn_id = prsn_id
         self._start_dt = start_dt
         self._end_dt = end_dt
