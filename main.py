@@ -5,7 +5,7 @@ from typing import NamedTuple
 from abc import ABC, abstractmethod
 from ortools.sat.python import cp_model
 
-from scheduler import ShellSchedule, ScheduleSolver, Duty, DutyQual, FlightOrg, FlightQual, Line, Person, AbsenceRequest
+from scheduler import ShellSchedule, ScheduleModel, ScheduleSolver, Duty, DutyQual, FlightOrg, FlightQual, Line, Person, AbsenceRequest
 
 def parse_csv(file: str, parse_fn):
     all_objs = []
@@ -163,8 +163,10 @@ def run():
     absences: list[AbsenceRequest] = parse_csv(absence_request_file, parse_absence_requests)
 
     shell = ShellSchedule(lines, duties)
+    model = ScheduleModel(shell, personnel, absences)
+    model.add_all_contraints()
 
-    solver = ScheduleSolver(personnel, shell, absences)
+    solver = ScheduleSolver(model, personnel, shell)
     (status, solution) = solver.solve()
 
     if (status == cp_model.OPTIMAL):

@@ -1,16 +1,21 @@
 import pytest
+import unittest
 from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
 from main import parse_absence_requests
-from scheduler import ScheduleSolver, Person, FlightOrg, Line, Duty, DutyQual, has_turn_time
+from scheduler import ScheduleSolver, ShellSchedule, Person, FlightOrg, Line, Duty, DutyQual, AbsenceRequest, has_turn_time
 
 def test_single_recurring_absence_request_when_parsed_returns_all_times_unavailable():
-    ar_str = ["1160170043","1160044308","1160005566","Hatfield","Bennett","Absent","Meeting","OG Meeting","2/2/2021 10:30:00 AM","2/2/2021 12:00:00 PM","2/2/2021 10:30:00 AM","4/5/2023 12:00:00 PM","8"]
+    ar_str = ["1160170043","1160044308","1160005566","Hatfield","Bennett","Absent","Meeting","OG Meeting","2/2/2021 10:30:00 AM","2/2/2021 12:00:00 PM","2/2/2021 10:30:00 AM","2/10/2021 12:00:00 PM","8"]
     
     ars = parse_absence_requests(ar_str);
-    print([(ar.start_dt(), ar.end_dt()) for ar in ars])
 
-    assert False
+    start_dt = datetime.strptime(ar_str[8], "%m/%d/%Y %I:%M:%S %p")
+    end_dt = datetime.strptime(ar_str[9], "%m/%d/%Y %I:%M:%S %p")
+
+    correct = [AbsenceRequest(int(ar_str[2]), start_dt, end_dt), AbsenceRequest(int(ar_str[2]), start_dt + timedelta(days = 1), end_dt + timedelta(days = 1)), AbsenceRequest(int(ar_str[2]), start_dt + timedelta(days = 8), end_dt + timedelta(days = 8))]
+
+    assert ars == correct
 
 def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_solution():
     lines = []
@@ -24,7 +29,8 @@ def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_s
     controller.qual_for_duty(DutyQual.CONTROLLER)
     personnel = [controller]
 
-    solver = ScheduleSolver(personnel, lines, duties, absences)
+    shell = ShellSchedule(lines, duties)
+    solver = ScheduleSolver(personnel, shell, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
@@ -43,7 +49,8 @@ def test_given_greater_than_max_num_duties_single_qualified_person_when_solved_t
     controller.qual_for_duty(DutyQual.CONTROLLER)
     personnel = [controller]
 
-    solver = ScheduleSolver(personnel, lines, duties, absences)
+    shell = ShellSchedule(lines, duties)
+    solver = ScheduleSolver(personnel, shell, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.INFEASIBLE
@@ -59,7 +66,8 @@ def test_given_single_duty_and_single_qualified_person_when_solved_then_duty_is_
     personnel = [controller]
     absences = []
 
-    solver = ScheduleSolver(personnel, lines, duties, absences)
+    shell = ShellSchedule(lines, duties)
+    solver = ScheduleSolver(personnel, shell, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
@@ -71,7 +79,8 @@ def test_given_single_duty_and_single_unqualified_person_when_solved_then_duty_i
     personnel = [Person(1, "LastName", "FirstName", 4)]
     absences = []
 
-    solver = ScheduleSolver(personnel, lines, duties, absences)
+    shell = ShellSchedule(lines, duties)
+    solver = ScheduleSolver(personnel, shell, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.INFEASIBLE
@@ -84,7 +93,8 @@ def test_given_single_line_and_single_person_when_solved_then_line_is_filled():
     personnel = [person]
     absences = []
 
-    solver = ScheduleSolver(personnel, lines, duties, absences)
+    shell = ShellSchedule(lines, duties)
+    solver = ScheduleSolver(personnel, shell, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
@@ -97,7 +107,8 @@ def test_given_single_pilot_with_turn_time_when_solved_then_optimal_solution():
     personnel = [person]
     absences = []
 
-    solver = ScheduleSolver(personnel, lines, duties, absences)
+    shell = ShellSchedule(lines, duties)
+    solver = ScheduleSolver(personnel, shell, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
@@ -109,7 +120,8 @@ def test_given_multiple_pilots_with_turn_time_when_solved_then_optimal_solution(
     personnel = [Person(1, "LastName", "FirstName", 3), Person(2, "LastName", "FirstName", 4)]
     absences = []
 
-    solver = ScheduleSolver(personnel, lines, duties, absences)
+    shell = ShellSchedule(lines, duties)
+    solver = ScheduleSolver(personnel, shell, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
@@ -121,7 +133,8 @@ def test_given_single_pilot_without_turn_time_when_solved_then_optimal_solution_
     personnel = [Person(1, "LastName", "FirstName", 4)]
     absences = []
 
-    solver = ScheduleSolver(personnel, lines, duties, absences)
+    shell = ShellSchedule(lines, duties)
+    solver = ScheduleSolver(personnel, shell, absences)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
