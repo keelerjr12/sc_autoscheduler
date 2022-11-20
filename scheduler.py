@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from enum import Enum, Flag, auto
 from ortools.sat.python import cp_model
 
-
 class FlightOrg(Enum):
     M = auto()
     N = auto()
@@ -179,10 +178,6 @@ def has_turn_time(l1: Line, l2: Line, td: timedelta) -> bool:
     td2 :timedelta = l2.time_takeoff - l1.time_takeoff
 
     return td1 > td or td2 > td
-
-def get_duties_conflicting_with_duty(duty: Duty, duties: list[Duty]) -> list[Duty]:
-    conflicting_duties = [d for d in duties if duty.is_conflict(d)]
-    return conflicting_duties
 
 # TODO: DESIGN: possibly a builder??????????
 class ScheduleModel:

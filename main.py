@@ -1,8 +1,7 @@
 import csv
+import configparser
 from datetime import datetime, timedelta
-from enum import IntEnum, Flag, auto
-from typing import NamedTuple
-from abc import ABC, abstractmethod
+from enum import IntEnum
 from ortools.sat.python import cp_model
 
 from scheduler import ShellSchedule, ScheduleModel, ScheduleSolver, Duty, DutyQual, FlightOrg, FlightQual, Line, Person, AbsenceRequest
@@ -127,7 +126,11 @@ def parse_absence_requests(str: str):
 
     return ars
 
-def print_solution(solution, shell: ShellSchedule):
+def print_solution(status, solution, shell: ShellSchedule):
+    if (status != cp_model.OPTIMAL):
+        print("Solution is infeasible")
+        return
+        
     for day in shell.days:
         for duty in day.duties:
             person = solution[duty.name]
@@ -150,17 +153,13 @@ def print_solution(solution, shell: ShellSchedule):
 def run():
     print("Entering Run")
 
-    RES_DIR = 'res/'
+    config = configparser.ConfigParser()
+    config.read("config.ini")
 
-    duty_schedule_file = RES_DIR + 'duty_schedule.csv'
-    flying_schedule_file = RES_DIR + 'flying_schedule.csv'
-    lox_file = RES_DIR + 'lox.csv'
-    absence_request_file = RES_DIR + 'absence_requests.csv'
-
-    duties: list[Duty] = parse_csv(duty_schedule_file, parse_duties)
-    lines: list[Line] = parse_csv(flying_schedule_file, parse_shell_lines)
-    personnel: list[Person] = parse_csv(lox_file, parse_personnel)
-    absences: list[AbsenceRequest] = parse_csv(absence_request_file, parse_absence_requests)
+    duties: list[Duty] = parse_csv(config["FILES"]["duty-schedule"], parse_duties)
+    lines: list[Line] = parse_csv(config["FILES"]["flying-schedule"], parse_shell_lines)
+    personnel: list[Person] = parse_csv(config["FILES"]["lox"], parse_personnel)
+    absences: list[AbsenceRequest] = parse_csv(config["FILES"]["absence-requests"], parse_absence_requests)
 
     shell = ShellSchedule(lines, duties)
     model = ScheduleModel(shell, personnel, absences)
@@ -169,10 +168,7 @@ def run():
     solver = ScheduleSolver(model, personnel, shell)
     (status, solution) = solver.solve()
 
-    if (status == cp_model.OPTIMAL):
-        print_solution(solution, shell)
-    else:
-        print("Solution is infeasible")
+    print_solution(status, solution, shell)
 
     print("Exiting Run")
 

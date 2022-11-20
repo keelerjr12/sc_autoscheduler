@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
 from main import parse_absence_requests
-from scheduler import ScheduleSolver, ShellSchedule, Person, FlightOrg, Line, Duty, DutyQual, AbsenceRequest, has_turn_time
+from scheduler import ScheduleModel, ScheduleSolver, ShellSchedule, Person, FlightOrg, Line, Duty, DutyQual, AbsenceRequest, has_turn_time
 
 def test_single_recurring_absence_request_when_parsed_returns_all_times_unavailable():
     ar_str = ["1160170043","1160044308","1160005566","Hatfield","Bennett","Absent","Meeting","OG Meeting","2/2/2021 10:30:00 AM","2/2/2021 12:00:00 PM","2/2/2021 10:30:00 AM","2/10/2021 12:00:00 PM","8"]
@@ -30,7 +30,12 @@ def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_s
     personnel = [controller]
 
     shell = ShellSchedule(lines, duties)
-    solver = ScheduleSolver(personnel, shell, absences)
+
+    model = ScheduleModel(shell, personnel, absences)
+    model.add_constraint("Fill Duties")
+    model.add_constraint("Max Events")
+
+    solver = ScheduleSolver(model, personnel, shell)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
