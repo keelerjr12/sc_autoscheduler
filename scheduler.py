@@ -3,6 +3,16 @@ from datetime import datetime, timedelta
 from enum import Enum, Flag, auto
 from ortools.sat.python import cp_model
 
+def get_commitments_for_ausm_tier(tier: int):
+    if (tier == 1):
+        return 3
+    if (tier == 2):
+        return 5
+    if (tier == 3):
+        return 7
+    if (tier == 4):
+        return 9
+
 class FlightOrg(Enum):
     M = auto()
     N = auto()
@@ -69,7 +79,7 @@ class Commitment(ABC):
 
 class Line(Commitment):
 
-    def __init__(self, number: int, org: FlightOrg, time_takeoff: datetime):
+    def __init__(self,number: int, org: FlightOrg, time_takeoff: datetime):
         self.number = number
         self.flight_org = org
 
@@ -78,7 +88,7 @@ class Line(Commitment):
         self.time_debrief_end = self.time_brief + timedelta(hours=3, minutes=30)
 
     def id(self):
-        return self.number
+        return str(self.number) + self.start_dt().strftime("%m/%d/%Y")
 
     def start_dt(self) -> datetime:
         return self.time_brief
@@ -97,7 +107,7 @@ class Duty(Commitment):
         self._sign_out_dt = sign_out_dt
 
     def id(self):
-        return self.name
+        return self.name + self._sign_in_dt.strftime("%m/%d/%Y")
 
     def start_dt(self) -> datetime:
         return self._sign_in_dt
@@ -297,7 +307,20 @@ class ScheduleModel:
         # TODO: move this to a function
         num_total_lines = len([l for d in self._shell.days for l in d.lines])
 
-        self._model.Minimize((num_total_lines - sum(lines_filled)) + sum(lines_with_misassigned))
+        # calculuate MSE for AUSM tiers
+        epsilon = 10
+        for p in self._personnel:
+            scheduled_commitments = []
+            for day in self._shell.days:
+                commitments = day.lines + day.duties
+                for c in commitments:
+                    scheduled_commitments.append(self._commit_vars[(day.date, c.id(), p.prsn_id)])
+
+            commitment_requirement = get_commitments_for_ausm_tier(p._ausm_tier)
+            self._model.Add(sum(scheduled_commitments)  <= commitment_requirement + epsilon)
+            self._model.Add(sum(scheduled_commitments)  >= commitment_requirement - epsilon)
+
+        self._model.Minimize((num_total_lines - sum(lines_filled)) + sum(lines_with_misassigned) + epsilon)
 
     constraints = {
         "Absence Request": _constraint_absence_requests,
@@ -342,17 +365,17 @@ class ScheduleSolver:
 
         for day in self._shell.days:
             for d in day.duties:
-                solution[d.name] = None
+                solution[d.id()] = None
 
                 for p in self._personnel:
-                    if solver.Value(self._model._variable((day.date, d.name, p.prsn_id))):
-                        solution[d.name] = p
+                    if solver.Value(self._model._variable((day.date, d.id(), p.prsn_id))):
+                        solution[d.id()] = p
 
             for l in day.lines:
-                solution[l.number] = None
+                solution[l.id()] = None
 
                 for p in self._personnel:
-                    if solver.Value(self._model._variable((day.date, l.number, p.prsn_id))):
-                        solution[l.number] = p
+                    if solver.Value(self._model._variable((day.date, l.id(), p.prsn_id))):
+                        solution[l.id()] = p
 
         return solution

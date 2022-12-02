@@ -55,12 +55,14 @@ def test_given_greater_than_max_num_duties_single_qualified_person_when_solved_t
     personnel = [controller]
 
     shell = ShellSchedule(lines, duties)
-    solver = ScheduleSolver(personnel, shell, absences)
+    model = ScheduleModel(shell, personnel, absences)
+    model.add_all_contraints()
+
+    solver = ScheduleSolver(model, personnel, shell)
     (status, solution) = solver.solve()
 
     assert status == cp_model.INFEASIBLE
     assert solution == {} 
-
 
 def test_given_single_duty_and_single_qualified_person_when_solved_then_duty_is_filled():
     lines = []
@@ -132,18 +134,37 @@ def test_given_multiple_pilots_with_turn_time_when_solved_then_optimal_solution(
     assert status == cp_model.OPTIMAL
     assert ((solution == {lines[0].number: personnel[0], lines[1].number: personnel[1], lines[2].number: personnel[0], lines[3].number: personnel[1]}) or (solution == {lines[0].number: personnel[1], lines[1].number: personnel[0], lines[2].number: personnel[1], lines[3].number: personnel[0]}))
 
-def test_given_single_pilot_without_turn_time_when_solved_then_optimal_solution_with_empty_line():
+def test_given_single_pilot_without_turn_time_between_flights_when_solved_then_optimal_solution_with_empty_line():
     lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, FlightOrg.O, datetime.strptime('7/29/2022 11:29:59 AM', '%m/%d/%Y %I:%M:%S %p'))] 
     duties = []
     personnel = [Person(1, "LastName", "FirstName", 4)]
     absences = []
 
     shell = ShellSchedule(lines, duties)
-    solver = ScheduleSolver(personnel, shell, absences)
+    model = ScheduleModel(shell, personnel, absences)
+    model.add_constraint('Min Turn Time')
+
+    solver = ScheduleSolver(model, personnel, shell)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
-    assert ((solution == {lines[0].number: None, lines[1].number: personnel[0]}) or (solution == {lines[0].number: personnel[0], lines[1].number: None}))
+    assert ((solution == {lines[0].id(): None, lines[1].id(): personnel[0]}) or (solution == {lines[0].id(): personnel[0], lines[1].id(): None}))
+
+def test_given_single_pilot_without_turn_time_between_flight_duty_when_solved_then_optimal_solution_with_empty_line():
+    lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
+    duties = [Duty("Tinder 1 Controller", DutyQual.CONTROLLER, datetime.strptime('7/29/2022 10:14:59 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 1:00:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
+    personnel = [Person(1, "LastName", "FirstName", 4)]
+    absences = []
+
+    shell = ShellSchedule(lines, duties)
+    model = ScheduleModel(shell, personnel, absences)
+    model.add_constraint('Min Turn Time')
+
+    solver = ScheduleSolver(model, personnel, shell)
+    (status, solution) = solver.solve()
+
+    assert status == cp_model.OPTIMAL
+    assert ((solution == {lines[0].id(): None, duties[0].id(): personnel[0]}) or (solution == {lines[0].id(): personnel[0], duties[0].id(): None}))
 
 def test_given_commitments_with_time_delta_exceeded_when_run_returns_true():
     lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, FlightOrg.O, datetime.strptime('7/29/2022 12:14:00 AM', '%m/%d/%Y %I:%M:%S %p'))]

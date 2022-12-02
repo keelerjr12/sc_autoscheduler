@@ -43,7 +43,7 @@ def str_to_duty_type(str_type: str) -> DutyQual:
         return DutyQual.OPS_SUP
 
 def parse_duties(str: str):
-    return Duty(str[3], str_to_duty_type(str[3]), datetime.strptime(str[9], '%m/%d/%Y %I:%M:%S %p'), datetime.strptime(str[10], '%m/%d/%Y %I:%M:%S %p'))
+    return Duty(str[3], str_to_duty_type(str[3]), datetime.strptime(str[6], '%m/%d/%Y %I:%M:%S %p'), datetime.strptime(str[7], '%m/%d/%Y %I:%M:%S %p'))
 
 def parse_shell_lines(str: str):
     flight_designator_str = str[2].split(sep=' - ')[1][0]
@@ -133,20 +133,20 @@ def print_solution(status, solution, shell: ShellSchedule):
         
     for day in shell.days:
         for duty in day.duties:
-            person = solution[duty.name]
+            person = solution[duty.id()]
             print(duty.name + ': ', end='')
 
-            if solution[duty.name] != None:
+            if solution[duty.id()] != None:
                 print ("%s, %s" % (person._last_name, person._first_name), end='')
             
             print()
 
         for line in day.lines:
-            person = solution[line.number]
+            person = solution[line.id()]
 
             print('[%i][%s] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.flight_org, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')), end='')
 
-            if solution[line.number] != None:
+            if solution[line.id()] != None:
                 print ("%s, %s" % (person._last_name, person._first_name), end='')
                 
             print()
