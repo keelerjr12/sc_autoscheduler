@@ -81,7 +81,7 @@ def test_given_single_duty_and_single_qualified_person_when_solved_then_duty_is_
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
-    assert solution == {duties[0].name: personnel[0]}
+    assert solution == {duties[0].id(): personnel[0]}
 
 def test_given_single_duty_and_single_unqualified_person_when_solved_then_duty_is_unfilled():
     lines = []
@@ -90,7 +90,9 @@ def test_given_single_duty_and_single_unqualified_person_when_solved_then_duty_i
     absences = []
 
     shell = ShellSchedule(lines, duties)
-    solver = ScheduleSolver(personnel, shell, absences)
+    model = ScheduleModel(shell, personnel, absences)
+    model.add_all_contraints()
+    solver = ScheduleSolver(model, personnel, shell)
     (status, solution) = solver.solve()
 
     assert status == cp_model.INFEASIBLE
@@ -104,11 +106,15 @@ def test_given_single_line_and_single_person_when_solved_then_line_is_filled():
     absences = []
 
     shell = ShellSchedule(lines, duties)
-    solver = ScheduleSolver(personnel, shell, absences)
-    (status, solution) = solver.solve()
+    model = ScheduleModel(shell, personnel, absences)
+    model.add_all_contraints()
+    
+    solver = ScheduleSolver(model, personnel, shell)
 
+    (status, solution) = solver.solve()
+    
     assert status == cp_model.OPTIMAL
-    assert solution == {lines[0].number: personnel[0]}
+    assert solution == {lines[0].id(): personnel[0]}
 
 def test_given_single_pilot_with_turn_time_when_solved_then_optimal_solution():
     lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2,FlightOrg.M, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
@@ -118,11 +124,14 @@ def test_given_single_pilot_with_turn_time_when_solved_then_optimal_solution():
     absences = []
 
     shell = ShellSchedule(lines, duties)
-    solver = ScheduleSolver(personnel, shell, absences)
+    model = ScheduleModel(shell, personnel, absences)
+    model.add_all_contraints()
+
+    solver = ScheduleSolver(model, personnel, shell)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
-    assert solution == {lines[0].number: personnel[0], lines[1].number: personnel[0]}
+    assert solution == {lines[0].id(): personnel[0], lines[1].id(): personnel[0]}
 
 def test_given_multiple_pilots_with_turn_time_when_solved_then_optimal_solution():
     lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, FlightOrg.O, datetime.strptime('7/29/2022 8:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(3, FlightOrg.P, datetime.strptime('7/29/2022 11:30:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(4, FlightOrg.P, datetime.strptime('7/29/2022 12:00:00 PM', '%m/%d/%Y %I:%M:%S %p'))]
@@ -131,11 +140,14 @@ def test_given_multiple_pilots_with_turn_time_when_solved_then_optimal_solution(
     absences = []
 
     shell = ShellSchedule(lines, duties)
-    solver = ScheduleSolver(personnel, shell, absences)
+    model = ScheduleModel(shell, personnel, absences)
+    model.add_all_contraints()
+
+    solver = ScheduleSolver(model, personnel, shell)
     (status, solution) = solver.solve()
 
     assert status == cp_model.OPTIMAL
-    assert ((solution == {lines[0].number: personnel[0], lines[1].number: personnel[1], lines[2].number: personnel[0], lines[3].number: personnel[1]}) or (solution == {lines[0].number: personnel[1], lines[1].number: personnel[0], lines[2].number: personnel[1], lines[3].number: personnel[0]}))
+    assert ((solution == {lines[0].id(): personnel[0], lines[1].id(): personnel[1], lines[2].id(): personnel[0], lines[3].id(): personnel[1]}) or (solution == {lines[0].id(): personnel[1], lines[1].id(): personnel[0], lines[2].id(): personnel[1], lines[3].id(): personnel[0]}))
 
 def test_given_single_pilot_without_turn_time_between_flights_when_solved_then_optimal_solution_with_empty_line():
     lines = [Line(1, FlightOrg.M, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p')), Line(2, FlightOrg.O, datetime.strptime('7/29/2022 11:29:59 AM', '%m/%d/%Y %I:%M:%S %p'))] 

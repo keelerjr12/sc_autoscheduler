@@ -1,5 +1,6 @@
 import csv
 import configparser
+from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from enum import IntEnum
 from ortools.sat.python import cp_model
@@ -127,30 +128,65 @@ def parse_absence_requests(str: str):
 
     return ars
 
-def print_solution(status, solution, shell: ShellSchedule):
-    if (status != cp_model.OPTIMAL):
-        print("Solution is infeasible")
-        return
-        
-    for day in shell.days():
-        for duty in day.commitments(Duty):
-            person = solution[duty.id()]
-            print(duty.name + ': ', end='')
+class SolutionPrinter(ABC):
+    def __init__(self, status, solution, shell):
+        self._status = status
+        self._solution = solution
+        self._shell = shell
 
-            if solution[duty.id()] != None:
-                print ("%s, %s" % (person._last_name, person._first_name), end='')
+    def print(self):
+        if (self._status != cp_model.OPTIMAL):
+            self._print_status("Solution is infeasible")
+            return
             
-            print()
+        for day in self._shell.days():
+            for duty in day.commitments(Duty):
+                person = self._solution[duty.id()]
+                self._print_row(duty.name + ': ')
 
-        for line in day.commitments(Line):
-            person = solution[line.id()]
-
-            print('[%i][%s] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.flight_org, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')), end='')
-
-            if solution[line.id()] != None:
-                print ("%s, %s" % (person._last_name, person._first_name), end='')
+                if self._solution[duty.id()] != None:
+                    self._print_row("%s, %s" % (person._last_name, person._first_name))
                 
-            print()
+                self._print_line()
+
+            for line in day.commitments(Line):
+                person = self._solution[line.id()]
+
+                self._print_row('[%i][%s] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.flight_org, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')))
+
+                if self._solution[line.id()] != None:
+                    self._print_row("%s, %s" % (person._last_name, person._first_name))
+                    
+                self._print_line()
+
+    @abstractmethod
+    def _print_status(self, status: str) -> None:
+        pass
+    
+    @abstractmethod
+    def _print_row(self, status: str) -> None:
+        pass
+    
+    @abstractmethod
+    def _print_line(self) -> None:
+        pass
+
+class ConsoleSolutionPrinter(SolutionPrinter):
+    def __init__(self, status, solution, shell) -> None:
+        return super().__init__(status, solution, shell)
+
+    def _print_status(self, status: str) -> None:
+        print(status) 
+
+    def _print_row(self, str: str) -> None:
+        print(str, end='')
+
+    def _print_line(self) -> None:
+        print()
+
+class HtmlSolutionPrinter(SolutionPrinter):
+    pass
+
 def run():
     print("Entering Run")
 
@@ -169,7 +205,8 @@ def run():
     solver = ScheduleSolver(model, personnel, shell)
     (status, solution) = solver.solve()
 
-    print_solution(status, solution, shell)
+    printer = ConsoleSolutionPrinter(status, solution, shell)
+    printer.print()
 
     print("Exiting Run")
 
