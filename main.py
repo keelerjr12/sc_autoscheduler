@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 from enum import IntEnum
 from ortools.sat.python import cp_model
 
-from scheduler import ShellSchedule, ScheduleModel, ScheduleSolver, Duty, DutyQual, FlightOrg, FlightQual, Line, Person, AbsenceRequest
+from scheduler.models import AbsenceRequest, Duty, DutyQual, FlightOrg, FlightQual, Line, Person
+from scheduler.scheduler import ScheduleModel, ScheduleSolver, ShellSchedule
 
 def parse_csv(file: str, parse_fn):
     all_objs = []
@@ -131,8 +132,8 @@ def print_solution(status, solution, shell: ShellSchedule):
         print("Solution is infeasible")
         return
         
-    for day in shell.days:
-        for duty in day.duties:
+    for day in shell.days():
+        for duty in day.commitments(Duty):
             person = solution[duty.id()]
             print(duty.name + ': ', end='')
 
@@ -141,7 +142,7 @@ def print_solution(status, solution, shell: ShellSchedule):
             
             print()
 
-        for line in day.lines:
+        for line in day.commitments(Line):
             person = solution[line.id()]
 
             print('[%i][%s] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.flight_org, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')), end='')
