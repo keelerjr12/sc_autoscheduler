@@ -147,7 +147,7 @@ class AbsenceRequest(Commitment):
 class Day:
 
     def __init__(self, date: datetime.date):
-        self.date = date
+        self._date = date
         self._commitments = {}
 
     def insert(self, commitment: Commitment) -> None:
@@ -166,3 +166,6 @@ class Day:
             return []
         
         return self._commitments[commit_type]
+
+    def date(self) -> datetime.date:
+        return self._date

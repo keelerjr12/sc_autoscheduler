@@ -128,64 +128,129 @@ def parse_absence_requests(str: str):
 
     return ars
 
+def compute_sorties_for_schedule(solution, person: Person) -> int:
+    ct = 0
+    for val in solution.values():
+        if (val != None and val.id() == person.id()):
+           ct += 1 
+    return ct
+
 class SolutionPrinter(ABC):
-    def __init__(self, status, solution, shell):
+    def __init__(self, status, solution, shell, personnel):
         self._status = status
         self._solution = solution
         self._shell = shell
+        self._personnel = personnel
+
+    @abstractmethod
+    def print(self):
+        pass
+
+class ConsoleSolutionPrinter(SolutionPrinter):
+
+    def __init__(self, status, solution, shell) -> None:
+        return super().__init__(status, solution, shell)
 
     def print(self):
         if (self._status != cp_model.OPTIMAL):
-            self._print_status("Solution is infeasible")
+            print("Solution is infeasible")
             return
             
         for day in self._shell.days():
             for duty in day.commitments(Duty):
                 person = self._solution[duty.id()]
-                self._print_row(duty.name + ': ')
+                print(duty.name + ': ', end='')
 
                 if self._solution[duty.id()] != None:
-                    self._print_row("%s, %s" % (person._last_name, person._first_name))
+                    print("%s, %s" % (person._last_name, person._first_name), end='')
                 
-                self._print_line()
+                print()
 
             for line in day.commitments(Line):
                 person = self._solution[line.id()]
 
-                self._print_row('[%i][%s] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.flight_org, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')))
+                print('[%i][%s] brief: %s, takeoff: %s, debrief end: %s -- ' % (line.number, line.flight_org, line.time_brief.strftime('%H%M'), line.time_takeoff.strftime('%H%M'), line.time_debrief_end.strftime('%H%M')), end='')
 
                 if self._solution[line.id()] != None:
-                    self._print_row("%s, %s" % (person._last_name, person._first_name))
+                    print("%s, %s" % (person._last_name, person._first_name), end='')
                     
-                self._print_line()
-
-    @abstractmethod
-    def _print_status(self, status: str) -> None:
-        pass
-    
-    @abstractmethod
-    def _print_row(self, status: str) -> None:
-        pass
-    
-    @abstractmethod
-    def _print_line(self) -> None:
-        pass
-
-class ConsoleSolutionPrinter(SolutionPrinter):
-    def __init__(self, status, solution, shell) -> None:
-        return super().__init__(status, solution, shell)
-
-    def _print_status(self, status: str) -> None:
-        print(status) 
-
-    def _print_row(self, str: str) -> None:
-        print(str, end='')
-
-    def _print_line(self) -> None:
-        print()
+                print()
 
 class HtmlSolutionPrinter(SolutionPrinter):
-    pass
+    def __init__(self, status, solution, shell, personnel) -> None:
+        return super().__init__(status, solution, shell, personnel)
+
+    def print(self):
+        self._print_schedule('index.html')
+        self._print_allocation('allocation.html')
+
+    def _print_header(self, out_file):
+        print("<html>", file=out_file)
+        print("  <body>", file=out_file)
+
+    def _print_footer(self, out_file):
+        print("  </body>", file=out_file)
+        print("</html>", file=out_file)
+
+    def _print_menu(self, out_file):
+        print('    <ul>', file=out_file)
+        print('      <li><a href="index.html">Schedule</a></li>', file=out_file)
+        print('      <li><a href="allocation.html">Allocation</a></li>', file=out_file)
+        print('    </ul>', file=out_file)
+
+    def _print_schedule(self, filename: str):
+        with open(filename, 'w') as out_file:
+            self._print_header(out_file)
+            self._print_menu(out_file)
+
+            if (self._status != cp_model.OPTIMAL):
+                print("Solution is infeasible", file=out_file)
+            else:
+                for day in self._shell.days():
+                    print(f"    <h3>{day.date().strftime('%a, %-m/%-d/%Y')}</h3>", file=out_file)
+                    print("    <table>", file=out_file)
+                    print("      <th>Line</th>", file=out_file)
+                    print("      <th>Organization</th>", file=out_file)
+                    print("      <th>Takeoff Time(L)</th>", file=out_file)
+                    for line in day.commitments(Line):
+                        person = self._solution[line.id()]
+                        
+                        print("      <tr>", file=out_file)
+                        print(f'        <td>{line.number}</td>', file=out_file)
+                        print(f'        <td>{line.flight_org}</td>', file=out_file)
+                        print(f'        <td>{line.time_takeoff.strftime("%H%M")}</td>', file=out_file)
+
+                        if self._solution[line.id()] != None:
+                            print("        <td>%s, %s</td>" % (person._last_name, person._first_name), file=out_file)
+                        print("      </tr>", file=out_file)
+                    
+                    for duty in day.commitments(Duty):
+                        print("      <tr>", file=out_file)
+                        person = self._solution[duty.id()]
+                        print("        <td>", duty.name + ': ', "</td>", file=out_file)
+
+                        if self._solution[duty.id()] != None:
+                            print("        <td>%s, %s</td>" % (person._last_name, person._first_name), file=out_file)
+                        
+                        print("      </tr>", file=out_file)
+                    print("    </table>", file=out_file)
+
+            self._print_footer(out_file)
+
+    def _print_allocation(self, filename):
+        with open(filename, 'w') as out_file:
+            self._print_header(out_file)
+            self._print_menu(out_file)
+
+            print('    <table>', file=out_file)
+            for person in self._personnel:
+                print('      <tr>', file=out_file)
+                print(f'        <td>{person._last_name}, {person._first_name}</td>', file=out_file)
+                sorties_scheduled = compute_sorties_for_schedule(self._solution, person)
+                print(f'        <td>{sorties_scheduled}</td>', file=out_file)
+                print('      </tr>', file=out_file)
+            print('    </table>', file=out_file)
+            self._print_footer(out_file)
 
 def run():
     print("Entering Run")
@@ -205,7 +270,7 @@ def run():
     solver = ScheduleSolver(model, personnel, shell)
     (status, solution) = solver.solve()
 
-    printer = ConsoleSolutionPrinter(status, solution, shell)
+    printer = HtmlSolutionPrinter(status, solution, shell, personnel)
     printer.print()
 
     print("Exiting Run")

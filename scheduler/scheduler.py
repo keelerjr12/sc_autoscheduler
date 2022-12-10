@@ -170,11 +170,12 @@ class ScheduleModel:
 
         ## minimize misassigned IPs by flight org
         lines_with_misassigned = []
-        for day in self._shell.days():
-            for line in day.commitments(Line):
-                for person in self._personnel:
-                    if (person._assigned_org != None and person._assigned_org != line.flight_org):
-                        lines_with_misassigned.append(self._commit_vars[(day.date, line.id(), person.id())])
+        ## TODO: fix this; flawed logic
+        #for day in self._shell.days():
+        #    for line in day.commitments(Line):
+        #        for person in self._personnel:
+        #            if (person._assigned_org != None and person._assigned_org != line.flight_org):
+        #                lines_with_misassigned.append(self._commit_vars[(day.date, line.id(), person.id())])
 
         # TODO: move this to a function
         num_total_lines = len([l for d in self._shell.days() for l in d.commitments(Line)])
@@ -199,7 +200,7 @@ class ScheduleModel:
             duty_epsilons += self._add_duty_objective(qual)
 
         # TODO: absolutely need to normalize this!
-        self._model.Minimize((num_total_lines - sum(lines_filled)) + sum(lines_with_misassigned) + ausm_epsilon + 100*duty_epsilons)
+        self._model.Minimize((num_total_lines - sum(lines_filled)) + sum(lines_with_misassigned) + 100*ausm_epsilon + 100*duty_epsilons)
 
     constraints = {
         "Absence Request": _constraint_absence_requests,
