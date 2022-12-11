@@ -42,9 +42,18 @@ def duty_day_exceeded(c1: Commitment, c2: Commitment) -> bool:
 
     return td1_hrs > 12.0 or td2_hrs > 12.0
 
-def has_turn_time(l1: Line, l2: Line, td: timedelta) -> bool:
-    td1 :timedelta = l1.time_takeoff - l2.time_takeoff
-    td2 :timedelta = l2.time_takeoff - l1.time_takeoff
+def time_between(c1: Commitment, c2: Commitment) -> timedelta:
+    td1: timedelta = c1.start_dt() - c2.start_dt()
+    td2: timedelta = c2.start_dt() - c1.start_dt()
+
+    if (td1 < timedelta()):
+        return td2
+    
+    return td1
+
+def has_turn_time(c1: Commitment, c2: Commitment, td: timedelta) -> bool:
+    td1 :timedelta = c1.start_dt() - c2.start_dt()
+    td2 :timedelta = c2.start_dt() - c1.start_dt()
 
     return td1 > td or td2 > td
 
@@ -126,13 +135,14 @@ class ScheduleModel:
                     conflicts = [self._commit_vars[(day.date, inner.id(), person.id())] for inner in commits if inner.is_conflict(outer)]
                     self._model.Add(sum(conflicts) <= 1).OnlyEnforceIf(self._commit_vars[(day.date, outer.id(), person.id())])
 
-    def _constraint_max_turn_time_between_flight_and_flight(self):
+    def _constraint_max_turn_time_between_commitments(self):
         #TODO: write unit tests for this
         for day in self._shell.days():
             for person in self._personnel:
-                for line in day.commitments(Line):
-                    csp_forbidden_lines = [self._commit_vars[(day.date, l.id(), person.id())] for l in day.commitments(Line) if has_turn_time(line, l, timedelta(hours = 4, minutes = 15))]
-                    self._model.Add(sum(csp_forbidden_lines) == 0).OnlyEnforceIf(self._commit_vars[(day.date, line.id(), person.id())])
+                for commit in day.commitments():
+                    csp_forbidden_commits = [self._commit_vars[(day.date, c.id(), person.id())] for c in day.commitments() if has_turn_time(commit, c, timedelta(hours = 4, minutes = 15))]
+                    self._model.Add(sum(csp_forbidden_commits) == 0).OnlyEnforceIf(self._commit_vars[(day.date, commit.id(), person.id())])
+
 
     def _constraint_personnel_qualified_for_duty(self):
         for day in self._shell.days():
@@ -161,27 +171,28 @@ class ScheduleModel:
         return epsilon
 
     def _add_objective(self):
-        # minimize the unfilled lines
+        num_total_lines = len([l for d in self._shell.days() for l in d.commitments(Line)])
+
+        # maximize the filled lines
         lines_filled = []
         for day in self._shell.days():
             for line in day.commitments(Line):
                 for person in self._personnel:
                     lines_filled.append(self._commit_vars[(day.date, line.id(), person.id())])
+        normalized_filled_lines = (1/num_total_lines)*sum(lines_filled)
 
-        ## minimize misassigned IPs by flight org
-        lines_with_misassigned = []
-        ## TODO: fix this; flawed logic
-        #for day in self._shell.days():
-        #    for line in day.commitments(Line):
-        #        for person in self._personnel:
-        #            if (person._assigned_org != None and person._assigned_org != line.flight_org):
-        #                lines_with_misassigned.append(self._commit_vars[(day.date, line.id(), person.id())])
-
-        # TODO: move this to a function
-        num_total_lines = len([l for d in self._shell.days() for l in d.commitments(Line)])
+        ## maximize assigned IPs by flight org
+        lines_with_correctly_assigned = []
+        for day in self._shell.days():
+            for line in day.commitments(Line):
+                for person in self._personnel:
+                    if (person._assigned_org != None and person._assigned_org == line.flight_org):
+                        lines_with_correctly_assigned.append(self._commit_vars[(day.date, line.id(), person.id())])
+        normalized_correctly_assigned_lines = (1/num_total_lines)*sum(lines_with_correctly_assigned)
 
         # optimize for AUSM tiers
-        ausm_epsilon = self._model.NewIntVar(0, 10, "ausm_eps")
+        MAX_AUSM_EPSILON = 9
+        ausm_epsilon = self._model.NewIntVar(0, MAX_AUSM_EPSILON, "ausm_eps")
         for person in self._personnel:
             scheduled_commitments = []
             for day in self._shell.days():
@@ -190,8 +201,9 @@ class ScheduleModel:
                     scheduled_commitments.append(self._commit_vars[(day.date, c.id(), person.id())])
 
             commitment_requirement = get_commitments_for_ausm_tier(person._ausm_tier)
-            self._model.Add(sum(scheduled_commitments)  <= commitment_requirement + ausm_epsilon)
-            self._model.Add(sum(scheduled_commitments)  >= commitment_requirement - ausm_epsilon)
+            normalized_ausm_epsilon = (1/MAX_AUSM_EPSILON)*ausm_epsilon
+            self._model.Add(sum(scheduled_commitments)  <= commitment_requirement + (MAX_AUSM_EPSILON - ausm_epsilon))
+            self._model.Add(sum(scheduled_commitments)  >= commitment_requirement - (MAX_AUSM_EPSILON - ausm_epsilon))
 
         # optimize for duties
         quals = [DutyQual.OPS_SUP, DutyQual.SOF, [DutyQual.CONTROLLER, DutyQual.OBSERVER]]
@@ -199,8 +211,8 @@ class ScheduleModel:
         for qual in quals:
             duty_epsilons += self._add_duty_objective(qual)
 
-        # TODO: absolutely need to normalize this!
-        self._model.Minimize((num_total_lines - sum(lines_filled)) + sum(lines_with_misassigned) + 100*ausm_epsilon + 100*duty_epsilons)
+        #self._model.Minimize(normalized_unfilled_lines + 0*normalized_misassigned_lines + 0*normalized_ausm_epsilon + 0*duty_epsilons)
+        self._model.Maximize(.75*normalized_filled_lines + .05*normalized_correctly_assigned_lines + .2*normalized_ausm_epsilon + 0*duty_epsilons)
 
     constraints = {
         "Absence Request": _constraint_absence_requests,
@@ -209,7 +221,7 @@ class ScheduleModel:
         "Fill Duties": _constraint_duty_filled_with_single_person,
         "Fill Flights": _constraint_flight_filled_with_at_most_single_person,
         "Min Turn Time": _constraint_min_turn_time_between_commitments,
-        "Max Turn Time": _constraint_max_turn_time_between_flight_and_flight,
+        "Max Turn Time": _constraint_max_turn_time_between_commitments,
         "Duty Qualified Personnel": _constraint_personnel_qualified_for_duty,
         "PIT Qualified Personnel": _constraint_personnel_qualified_for_PIT
     }
@@ -222,6 +234,11 @@ class ScheduleModel:
         fn = self.constraints[constraint_nm]
         fn(self)
 
+class ScheduleSolution:
+    def __init__(self, status: str, schedule: ShellSchedule):
+        self._status = status
+        self._schedule = schedule
+
 class ScheduleSolver:
     
     def __init__(self, model:ScheduleModel, personnel: list[Person], shell: ShellSchedule):
@@ -230,32 +247,29 @@ class ScheduleSolver:
         self._shell = shell
         self._solver = cp_model.CpSolver()
 
-    def solve(self):
+    def solve(self) -> ScheduleSolution:
 
         status = self._solver.Solve(self._model._handle())
+        print(self._solver.ObjectiveValue())
 
-        if status != cp_model.OPTIMAL:
-            return (status, {})
+        self._parse_solution()
+        solution = ScheduleSolution(status, self._shell)
 
-        return (status, self._get_solution())
+        return solution
 
 
-    def _get_solution(self):
-        solution = {}
-
+    def _parse_solution(self) -> None:
         for day in self._shell.days():
             for d in day.commitments(Duty):
-                solution[d.id()] = None
+                d.assign(None)
 
                 for person in self._personnel:
                     if self._solver.Value(self._model._variable((day.date, d.id(), person.id()))):
-                        solution[d.id()] = person
+                        d.assign(person)
 
             for l in day.commitments(Line):
-                solution[l.id()] = None
+                l.assign(None)
 
                 for person in self._personnel:
                     if self._solver.Value(self._model._variable((day.date, l.id(), person.id()))):
-                        solution[l.id()] = person
-
-        return solution
+                        l.assign(person)

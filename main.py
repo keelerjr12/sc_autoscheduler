@@ -6,7 +6,7 @@ from enum import IntEnum
 from ortools.sat.python import cp_model
 
 from scheduler.models import AbsenceRequest, Duty, DutyQual, FlightOrg, FlightQual, Line, Person
-from scheduler.scheduler import ScheduleModel, ScheduleSolver, ShellSchedule
+from scheduler.solver import ScheduleModel, ScheduleSolution, ScheduleSolver, ShellSchedule, time_between
 
 def parse_csv(file: str, parse_fn):
     all_objs = []
@@ -128,16 +128,34 @@ def parse_absence_requests(str: str):
 
     return ars
 
-def compute_sorties_for_schedule(solution, person: Person) -> int:
+def compute_sorties_for_schedule(solution: ScheduleSolution, person: Person) -> int:
     ct = 0
-    for val in solution.values():
-        if (val != None and val.id() == person.id()):
-           ct += 1 
+    for day in solution._schedule.days():
+        for commit in day.commitments():
+            p = commit.assigned_to()
+            if (p != None and p.id() == person.id()):
+                ct += 1 
     return ct
 
+def compute_max_turn_time_for(solution: ScheduleSolution, person: Person) -> timedelta:
+    max_turn = timedelta()
+
+    for day in solution._schedule.days():
+        prev_commit = None
+        for commit in day.commitments():
+            if commit.assigned_to() == person:
+                if prev_commit != None:
+                    turn_time = time_between(prev_commit, commit)
+
+                    if turn_time > max_turn:
+                        max_turn = turn_time
+
+                prev_commit = commit
+
+    return max_turn
+
 class SolutionPrinter(ABC):
-    def __init__(self, status, solution, shell, personnel):
-        self._status = status
+    def __init__(self, solution, shell, personnel):
         self._solution = solution
         self._shell = shell
         self._personnel = personnel
@@ -148,8 +166,8 @@ class SolutionPrinter(ABC):
 
 class ConsoleSolutionPrinter(SolutionPrinter):
 
-    def __init__(self, status, solution, shell) -> None:
-        return super().__init__(status, solution, shell)
+    def __init__(self, solution, shell) -> None:
+        return super().__init__(solution, shell)
 
     def print(self):
         if (self._status != cp_model.OPTIMAL):
@@ -177,8 +195,8 @@ class ConsoleSolutionPrinter(SolutionPrinter):
                 print()
 
 class HtmlSolutionPrinter(SolutionPrinter):
-    def __init__(self, status, solution, shell, personnel) -> None:
-        return super().__init__(status, solution, shell, personnel)
+    def __init__(self, solution, shell, personnel) -> None:
+        return super().__init__(solution, shell, personnel)
 
     def print(self):
         self._print_schedule('index.html')
@@ -203,33 +221,32 @@ class HtmlSolutionPrinter(SolutionPrinter):
             self._print_header(out_file)
             self._print_menu(out_file)
 
-            if (self._status != cp_model.OPTIMAL):
+            if (self._solution._status != cp_model.OPTIMAL):
                 print("Solution is infeasible", file=out_file)
             else:
-                for day in self._shell.days():
+                for day in self._solution._schedule.days():
                     print(f"    <h3>{day.date().strftime('%a, %-m/%-d/%Y')}</h3>", file=out_file)
                     print("    <table>", file=out_file)
                     print("      <th>Line</th>", file=out_file)
                     print("      <th>Organization</th>", file=out_file)
                     print("      <th>Takeoff Time(L)</th>", file=out_file)
                     for line in day.commitments(Line):
-                        person = self._solution[line.id()]
-                        
                         print("      <tr>", file=out_file)
                         print(f'        <td>{line.number}</td>', file=out_file)
                         print(f'        <td>{line.flight_org}</td>', file=out_file)
                         print(f'        <td>{line.time_takeoff.strftime("%H%M")}</td>', file=out_file)
 
-                        if self._solution[line.id()] != None:
+                        person = line.assigned_to()
+                        if person != None:
                             print("        <td>%s, %s</td>" % (person._last_name, person._first_name), file=out_file)
                         print("      </tr>", file=out_file)
                     
                     for duty in day.commitments(Duty):
                         print("      <tr>", file=out_file)
-                        person = self._solution[duty.id()]
                         print("        <td>", duty.name + ': ', "</td>", file=out_file)
 
-                        if self._solution[duty.id()] != None:
+                        person = duty.assigned_to()
+                        if person != None:
                             print("        <td>%s, %s</td>" % (person._last_name, person._first_name), file=out_file)
                         
                         print("      </tr>", file=out_file)
@@ -243,11 +260,19 @@ class HtmlSolutionPrinter(SolutionPrinter):
             self._print_menu(out_file)
 
             print('    <table>', file=out_file)
+            print('      <th>Name</th>', file=out_file)
+            print('      <th>Events</th>', file=out_file)
+            print('      <th>Max Turn Time</th>', file=out_file)
             for person in self._personnel:
                 print('      <tr>', file=out_file)
                 print(f'        <td>{person._last_name}, {person._first_name}</td>', file=out_file)
+
                 sorties_scheduled = compute_sorties_for_schedule(self._solution, person)
                 print(f'        <td>{sorties_scheduled}</td>', file=out_file)
+
+                max_turn_time = compute_max_turn_time_for(self._solution, person)
+                print(f'        <td>{max_turn_time}</td>', file=out_file)
+
                 print('      </tr>', file=out_file)
             print('    </table>', file=out_file)
             self._print_footer(out_file)
@@ -268,9 +293,9 @@ def run():
     model.add_all_contraints()
 
     solver = ScheduleSolver(model, personnel, shell)
-    (status, solution) = solver.solve()
+    solution = solver.solve()
 
-    printer = HtmlSolutionPrinter(status, solution, shell, personnel)
+    printer = HtmlSolutionPrinter(solution, shell, personnel)
     printer.print()
 
     print("Exiting Run")

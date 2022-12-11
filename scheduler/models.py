@@ -34,6 +34,12 @@ class Person:
         self._assigned_org = None
         self._ausm_tier = ausm_tier
 
+    def __eq__(self, other):
+        if (not isinstance(other, Person)):
+            return False
+
+        return self.id() == other.id()
+
     def id(self) -> int:
         return self._id
 
@@ -65,6 +71,12 @@ class Commitment(ABC):
     @abstractmethod
     def end_dt(self) -> datetime:
         pass
+
+    def assign(self, person: Person) -> None:
+        self._person = person
+
+    def assigned_to(self) -> Person:
+        return self._person
 
     def is_conflict(self, other) -> bool:
         return other.end_dt() > self.start_dt() and other.start_dt() < self.end_dt()

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from ortools.sat.python import cp_model
 from main import parse_absence_requests
 from scheduler.models import AbsenceRequest, Duty, DutyQual, FlightOrg, Line, Person
-from scheduler.scheduler import ScheduleModel, ScheduleSolver, ShellSchedule, has_turn_time
+from scheduler.solver import ScheduleModel, ScheduleSolver, ShellSchedule, has_turn_time
 
 def test_single_recurring_absence_request_when_parsed_returns_all_times_unavailable():
     ar_str = ["1160170043","1160044308","1160005566","Hatfield","Bennett","Absent","Meeting","OG Meeting","2/2/2021 10:30:00 AM","2/2/2021 12:00:00 PM","2/2/2021 10:30:00 AM","2/10/2021 12:00:00 PM","8"]
