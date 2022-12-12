@@ -166,9 +166,9 @@ class ScheduleModel:
                     if (d.is_type(duty_quals)):
                         duty_tours.append(self._commit_vars[(day.date, d.id(), person.id())])
 
-            self._model.Add(sum(duty_tours) <= 0 + epsilon)
+            self._model.Add(sum(duty_tours) <= 10 - epsilon)
         
-        return epsilon
+        return (1/10)*epsilon
 
     def _add_objective(self):
         num_total_lines = len([l for d in self._shell.days() for l in d.commitments(Line)])
@@ -206,13 +206,12 @@ class ScheduleModel:
             self._model.Add(sum(scheduled_commitments)  >= commitment_requirement - (MAX_AUSM_EPSILON - ausm_epsilon))
 
         # optimize for duties
-        quals = [DutyQual.OPS_SUP, DutyQual.SOF, [DutyQual.CONTROLLER, DutyQual.OBSERVER]]
+        quals = [[DutyQual.OPS_SUP, DutyQual.SOF, DutyQual.CONTROLLER, DutyQual.OBSERVER]]
         duty_epsilons = 0
         for qual in quals:
             duty_epsilons += self._add_duty_objective(qual)
 
-        #self._model.Minimize(normalized_unfilled_lines + 0*normalized_misassigned_lines + 0*normalized_ausm_epsilon + 0*duty_epsilons)
-        self._model.Maximize(.75*normalized_filled_lines + .05*normalized_correctly_assigned_lines + .2*normalized_ausm_epsilon + 0*duty_epsilons)
+        self._model.Maximize(.6*normalized_filled_lines + .05*normalized_correctly_assigned_lines + .15*normalized_ausm_epsilon + .2*duty_epsilons)
 
     constraints = {
         "Absence Request": _constraint_absence_requests,
@@ -256,7 +255,6 @@ class ScheduleSolver:
         solution = ScheduleSolution(status, self._shell)
 
         return solution
-
 
     def _parse_solution(self) -> None:
         for day in self._shell.days():

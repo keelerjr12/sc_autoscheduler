@@ -137,6 +137,15 @@ def compute_sorties_for_schedule(solution: ScheduleSolution, person: Person) -> 
                 ct += 1 
     return ct
 
+def compute_duties_for_schedule(solution: ScheduleSolution, person: Person) -> int:
+    ct = 0
+    for day in solution._schedule.days():
+        for commit in day.commitments(Duty):
+            p = commit.assigned_to()
+            if (p != None and p.id() == person.id()):
+                ct += 1 
+    return ct
+
 def compute_max_turn_time_for(solution: ScheduleSolution, person: Person) -> timedelta:
     max_turn = timedelta()
 
@@ -261,7 +270,8 @@ class HtmlSolutionPrinter(SolutionPrinter):
 
             print('    <table>', file=out_file)
             print('      <th>Name</th>', file=out_file)
-            print('      <th>Events</th>', file=out_file)
+            print('      <th># of Events</th>', file=out_file)
+            print('      <th># of Duties</th>', file=out_file)
             print('      <th>Max Turn Time</th>', file=out_file)
             for person in self._personnel:
                 print('      <tr>', file=out_file)
@@ -269,6 +279,9 @@ class HtmlSolutionPrinter(SolutionPrinter):
 
                 sorties_scheduled = compute_sorties_for_schedule(self._solution, person)
                 print(f'        <td>{sorties_scheduled}</td>', file=out_file)
+
+                duties_scheduled = compute_duties_for_schedule(self._solution, person)
+                print(f'        <td>{duties_scheduled}</td>', file=out_file)
 
                 max_turn_time = compute_max_turn_time_for(self._solution, person)
                 print(f'        <td>{max_turn_time}</td>', file=out_file)
