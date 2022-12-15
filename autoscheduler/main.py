@@ -294,7 +294,7 @@ def run():
     print("Entering Run")
 
     config = configparser.ConfigParser()
-    config.read("config.ini")
+    config.read("autoscheduler/config.ini")
 
     duties: list[Duty] = parse_csv(config["FILES"]["duty-schedule"], parse_duties)
     lines: list[Line] = parse_csv(config["FILES"]["flying-schedule"], parse_shell_lines)
