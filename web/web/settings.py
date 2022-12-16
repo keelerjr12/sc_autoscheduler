@@ -53,6 +53,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'web.urls'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'files')
 
 TEMPLATES = [
     {

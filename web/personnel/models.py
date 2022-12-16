@@ -3,7 +3,7 @@ from django.contrib.auth.models import Group
 
 class Pilot(models.Model):
     id = models.IntegerField(primary_key=True)
-    auth_group_id = models.ForeignKey(Group, db_column='auth_group_id', on_delete=models.CASCADE)
+    auth_group = models.ForeignKey(Group, on_delete=models.CASCADE)
     prsn_id = models.IntegerField()
     last_name = models.CharField(max_length=128)
     first_name = models.CharField(max_length=128)

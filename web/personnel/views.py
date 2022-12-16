@@ -6,9 +6,8 @@ from .models import Pilot
 
 @login_required
 def index(request):
-    user = request.user.groups.all()
-    print(user)
-    pilots_rs = Pilot.objects.all()
+    pilots_rs = Pilot.objects.filter(auth_group__in=request.user.groups.all())
+
     header_quals = ['Operations Supervisor', 'SOF', 'RSU Controller', 'RSU Observer']
 
     pilots = []
