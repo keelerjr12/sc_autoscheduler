@@ -1,8 +1,9 @@
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.http import HttpResponse, Http404
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 import os
+import subprocess
 
 @login_required
 def index(request):
@@ -15,6 +16,7 @@ def index(request):
 
     return render(request, 'schedule/index.html', context)
 
+@login_required
 def download(request):
     filename = request.GET['file']
     file_path = os.path.join(settings.MEDIA_ROOT, 'schedules', filename)
@@ -27,3 +29,9 @@ def download(request):
             return response
 
     return Http404
+
+@login_required
+def build(request):
+    subprocess.Popen(['python', 'autoscheduler/main.py'])
+
+    return redirect('index')

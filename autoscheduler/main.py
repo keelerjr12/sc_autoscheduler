@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from enum import IntEnum
 from ortools.sat.python import cp_model
+import xlsxwriter
+import os
 
 from scheduler.models import AbsenceRequest, Duty, DutyQual, FlightOrg, FlightQual, Line, Person
 from scheduler.solver import ScheduleModel, ScheduleSolution, ScheduleSolver, ShellSchedule, time_between
@@ -290,6 +292,32 @@ class HtmlSolutionPrinter(SolutionPrinter):
             print('    </table>', file=out_file)
             self._print_footer(out_file)
 
+class ExcelSolutionPrinter():
+    def __init__(self, solution: ScheduleSolution, shell: ShellSchedule, personnel: list[Person]):
+        self._solution = solution
+        self._shell = shell
+        self._personnel = personnel
+
+    def print(self, filename:str):
+        with xlsxwriter.Workbook(filename) as workbook:
+            for day in self._solution._schedule.days():
+                worksheet = workbook.add_worksheet(day.date().strftime('%Y%m%d'))
+                
+                row = 0
+                col = 0
+
+                for line in day.commitments(Line):
+                    worksheet.write(row, col, line.number)
+                    worksheet.write(row, col + 1, line.flight_org.name)
+                    worksheet.write(row, col + 2, line.time_takeoff.strftime("%H%M"))
+                    
+                    person = line.assigned_to()
+                    if person != None:
+                        worksheet.write(row, col + 3, line._person._last_name + ', ' + line._person._first_name)
+                    
+                    row = row + 1
+
+
 def run():
     print("Entering Run")
 
@@ -308,8 +336,11 @@ def run():
     solver = ScheduleSolver(model, personnel, shell)
     solution = solver.solve()
 
-    printer = HtmlSolutionPrinter(solution, shell, personnel)
-    printer.print()
+    printer = ExcelSolutionPrinter(solution, shell, personnel)
+    dir = config['FILES']['output_dir']
+    date = solution._schedule.days()[0].date().strftime('%Y%m%d')
+    filename = '469_fts_' + date + '.xlsx'
+    printer.print(os.path.join(dir, filename))
 
     print("Exiting Run")
 

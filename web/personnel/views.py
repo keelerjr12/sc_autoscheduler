@@ -2,13 +2,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.shortcuts import HttpResponse, render
 import csv
-from .models import Pilot
+from .models import Organization, Pilot
 
 @login_required
 def index(request):
-    pilots_rs = Pilot.objects.filter(auth_group__in=request.user.groups.all())
-
+    pilots_rs = Pilot.objects.filter(auth_group__in=request.user.groups.all()).prefetch_related('quals')
+    #print(pilots_rs.query)
     header_quals = ['Operations Supervisor', 'SOF', 'RSU Controller', 'RSU Observer']
+    header = ['Assigned Flight'] + header_quals
 
     pilots = []
     for pilot_rs in pilots_rs:
@@ -20,10 +21,17 @@ def index(request):
                 if pq.name == qual:
                     q = 'X'
             quals.append(q)
+    
+        org = pilot_rs.org.first()
+        if (org == None):
+            pilot['org'] = ""
+        else:
+            pilot['org'] = org.name
+
         pilot['quals'] = quals
         pilots.append(pilot)
 
-    context = {'header': header_quals, 'pilots': pilots}
+    context = {'header': header, 'pilots': pilots}
     #file = 'res/lox.csv'
 
     #with open(file, newline='') as csvfile:
