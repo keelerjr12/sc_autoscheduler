@@ -1,6 +1,24 @@
 from django.db import models
 from django.contrib.auth.models import Group
 
+class LOX(models.Model):
+    id = models.IntegerField(primary_key=True, db_column='pilot_id')
+    last_name = models.CharField(max_length=255)
+    first_name = models.CharField(max_length=255)
+
+    assigned_org = models.CharField(max_length=64)
+
+    ops_supervisor = models.BooleanField(db_column='operations_supervisor')
+    sof = models.BooleanField()
+    rsu_controller = models.BooleanField()
+    rsu_observer = models.BooleanField()
+
+    pit_ip = models.BooleanField()
+
+    class Meta:
+        managed = False
+        db_table = 'vw_pilots_quals'
+
 class Organization(models.Model):
     id = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=64)

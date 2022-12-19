@@ -1,8 +1,8 @@
-DROP TABLE pilots_orgs;
-DROP TABLE orgs;
-DROP TABLE pilots_quals;
-DROP TABLE quals;
-DROP TABLE pilots;
+DROP TABLE pilots_orgs CASCADE;
+DROP TABLE orgs CASCADE;
+DROP TABLE pilots_quals CASCADE;
+DROP TABLE quals CASCADE;
+DROP TABLE pilots CASCADE;
 
 CREATE TABLE IF NOT EXISTS pilots (
     id              SERIAL PRIMARY KEY,
@@ -39,7 +39,7 @@ INSERT INTO pilots (auth_group_id, prsn_id, last_name, first_name, ausm_tier) VA
 
 INSERT INTO quals (name) VALUES ('Operations Supervisor'), ('SOF'), ('RSU Controller'), ('RSU Observer'), ('PIT IP');
 
-INSERT INTO pilots_quals(pilot_id, qual_id) VALUES (1, 1), (2, 3), (2, 4);
+INSERT INTO pilots_quals(pilot_id, qual_id) VALUES (1, 1), (1, 5), (2, 3), (2, 4);
 
 INSERT INTO orgs (name) VALUES ('M'), ('N'), ('O'), ('P'), ('X');
 
