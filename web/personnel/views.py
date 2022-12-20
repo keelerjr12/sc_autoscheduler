@@ -1,14 +1,13 @@
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
-from django.shortcuts import HttpResponse, render
+from django.shortcuts import render
 import csv
-from .models import Organization, Pilot, LOX
+from .models import LOX
 
 @login_required
 def index(request):
     header = ['Assigned Flight', 'Operations Supervisor', 'SOF', 'RSU Controller', 'RSU Observer', 'PIT IP']
 
-    lox = LOX.objects.all()
+    lox = LOX.objects.filter(auth_group_name__in=request.user.groups.values_list('name', flat=True)).all()
 
     context = {'header': header, 'lox': lox}
     #file = 'res/lox.csv'
@@ -16,8 +15,5 @@ def index(request):
     #with open(file, newline='') as csvfile:
     #    reader = csv.reader(csvfile, delimiter=',')
     #    header = next(reader, None)
-
-    #    roster = [row for row in reader]
-    #    context = {'header': header, 'roster': roster}
 
     return render(request, 'personnel/index.html', context)

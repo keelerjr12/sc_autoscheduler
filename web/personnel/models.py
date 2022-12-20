@@ -2,7 +2,9 @@ from django.db import models
 from django.contrib.auth.models import Group
 
 class LOX(models.Model):
-    id = models.IntegerField(primary_key=True, db_column='pilot_id')
+    id = models.IntegerField(primary_key=True, db_column='id')
+    auth_group_name = models.CharField(max_length=150)
+
     last_name = models.CharField(max_length=255)
     first_name = models.CharField(max_length=255)
 
