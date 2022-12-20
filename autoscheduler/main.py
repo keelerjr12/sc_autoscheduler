@@ -7,6 +7,10 @@ from ortools.sat.python import cp_model
 import xlsxwriter
 import os
 
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session
+from models import Pilot
+
 from scheduler.models import AbsenceRequest, Duty, DutyQual, FlightOrg, FlightQual, Line, Person
 from scheduler.solver import ScheduleModel, ScheduleSolution, ScheduleSolver, ShellSchedule, time_between
 
@@ -14,7 +18,7 @@ def parse_csv(file: str, parse_fn):
     all_objs = []
 
     with open(file, newline='') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
+        reader = csv.reader(csvfiue, delimiter=',')
         next(reader, None)
 
         for row in reader:
@@ -324,9 +328,25 @@ def run():
     config = configparser.ConfigParser()
     config.read("autoscheduler/config.ini")
 
+    engine = create_engine("postgresql+psycopg2://postgres:postgres@localhost:5432/sparkcell")
+    session = Session(engine)
+    result = session.scalars(select(Pilot))
+
+    personnel: list[Person] = []
+
+
+    # migrate this to personnel view
+    for user in result:
+        person = Person(user.id, user.last_name, user.first_name, user.ausm_tier)
+        personnel.append(person)
+    print(personnel)
+    exit()
+
     duties: list[Duty] = parse_csv(config["FILES"]["duty-schedule"], parse_duties)
     lines: list[Line] = parse_csv(config["FILES"]["flying-schedule"], parse_shell_lines)
-    personnel: list[Person] = parse_csv(config["FILES"]["lox"], parse_personnel)
+    #personnel: list[Person] = parse_csv(config["FILES"]["lox"], parse_personnel)
+
+
     absences: list[AbsenceRequest] = parse_csv(config["FILES"]["absence-requests"], parse_absence_requests)
 
     shell = ShellSchedule(lines, duties)
