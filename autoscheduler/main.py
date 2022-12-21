@@ -26,7 +26,7 @@ def map_str_to_org(org_str: str) -> FlightOrg:
 
     return orgs[org_str]
 
-def get_personnel() -> list[Pilot]:
+def get_personnel() -> list[Person]:
     result = session.scalars(select(Pilot))
 
     personnel: list[Person] = []
@@ -37,21 +37,21 @@ def get_personnel() -> list[Pilot]:
         if (len(user.assigned_org) > 0):
             org = map_str_to_org(user.assigned_org[0].name)
             person.assign_to(org)
+        for qual in user.quals:
+            if qual.name == "Operations Supervisor":
+                person.qual_for_duty(DutyQual.OPS_SUP)
+            if qual.name == "SOF":
+                person.qual_for_duty(DutyQual.SOF)
+            if qual.name == "RSU Controller":
+                person.qual_for_duty(DutyQual.CONTROLLER)
+            if qual.name == "RSU Observer":
+                person.qual_for_duty(DutyQual.OBSERVER)
 
-        #if user.ops_sup:
-        #    person.qual_for_duty(DutyQual.OPS_SUP)
-        #if user.sof:
-        #    person.qual_for_duty(DutyQual.SOF)
-        #if user.rsu_controller:
-        #    person.qual_for_duty(DutyQual.CONTROLLER)
-        #if user.rsu_controller:
-        #    person.qual_for_duty(DutyQual.OBSERVER)
-
-        #if user.pit_ip:
-        #    person.qual_for_flight(FlightQual.PIT)
+            if qual.name == "PIT IP":
+                person.qual_for_flight(FlightQual.PIT)
 
         personnel.append(person)
-
+    
     return personnel
 
 
@@ -378,7 +378,7 @@ def run():
     lines: list[Line] = parse_csv(config["FILES"]["flying-schedule"], parse_shell_lines)
     #personnel: list[Person] = parse_csv(config["FILES"]["lox"], parse_personnel)
     personnel = get_personnel()
-    [print(person.id(), person._last_name, person._first_name, person._ausm_tier, person._assigned_org) for person in personnel]
+    [print(person.id(), person._last_name, person._first_name, person._ausm_tier, person._assigned_org, person._flight_quals) for person in personnel]
 
     absences: list[AbsenceRequest] = parse_csv(config["FILES"]["absence-requests"], parse_absence_requests)
 

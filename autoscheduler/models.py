@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String 
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import ForeignKey, Table
@@ -18,6 +18,19 @@ PilotOrganization = Table(
     Column("org_id", ForeignKey("orgs.id"), primary_key=True),
 )
 
+class Qualification(Base):
+    __tablename__ = 'quals'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+
+PilotQualification = Table(
+    "pilots_quals",
+    Base.metadata,
+    Column("pilot_id", ForeignKey("pilots.id"), primary_key=True),
+    Column("qual_id", ForeignKey("quals.id"), primary_key=True),
+)
+
 class Pilot(Base):
     __tablename__ = "pilots"
 
@@ -27,6 +40,8 @@ class Pilot(Base):
     last_name = Column(String)
     ausm_tier = Column(Integer)
     assigned_org = relationship('Organization', secondary=PilotOrganization)
+
+    quals = relationship('Qualification', secondary=PilotQualification)
 
     #ops_sup = Column('operations_supervisor', Boolean)
     #sof = Column('sof', Boolean)
