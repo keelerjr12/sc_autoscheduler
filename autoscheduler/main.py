@@ -7,18 +7,59 @@ from ortools.sat.python import cp_model
 import xlsxwriter
 import os
 
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session
+from data import session
+from sqlalchemy import select
 from models import Pilot
 
 from scheduler.models import AbsenceRequest, Duty, DutyQual, FlightOrg, FlightQual, Line, Person
 from scheduler.solver import ScheduleModel, ScheduleSolution, ScheduleSolver, ShellSchedule, time_between
 
+def map_str_to_org(org_str: str) -> FlightOrg:
+    orgs = {
+        'M': FlightOrg.M,
+        'N': FlightOrg.N,
+        'O': FlightOrg.O,
+        'P': FlightOrg.P,
+        'X': FlightOrg.X,
+        'Check': FlightOrg.CHECK
+    }
+
+    return orgs[org_str]
+
+def get_personnel() -> list[Pilot]:
+    result = session.scalars(select(Pilot))
+
+    personnel: list[Person] = []
+
+    for user in result:
+        person = Person(user.id, user.last_name, user.first_name, user.ausm_tier)
+
+        if (len(user.assigned_org) > 0):
+            org = map_str_to_org(user.assigned_org[0].name)
+            person.assign_to(org)
+
+        #if user.ops_sup:
+        #    person.qual_for_duty(DutyQual.OPS_SUP)
+        #if user.sof:
+        #    person.qual_for_duty(DutyQual.SOF)
+        #if user.rsu_controller:
+        #    person.qual_for_duty(DutyQual.CONTROLLER)
+        #if user.rsu_controller:
+        #    person.qual_for_duty(DutyQual.OBSERVER)
+
+        #if user.pit_ip:
+        #    person.qual_for_flight(FlightQual.PIT)
+
+        personnel.append(person)
+
+    return personnel
+
+
 def parse_csv(file: str, parse_fn):
     all_objs = []
 
     with open(file, newline='') as csvfile:
-        reader = csv.reader(csvfiue, delimiter=',')
+        reader = csv.reader(csvfile, delimiter=',')
         next(reader, None)
 
         for row in reader:
@@ -302,8 +343,13 @@ class ExcelSolutionPrinter():
         self._shell = shell
         self._personnel = personnel
 
-    def print(self, filename:str):
-        with xlsxwriter.Workbook(filename) as workbook:
+    def print(self, dir:str):
+        solution_date = self._solution._schedule.days()[0].date().strftime('%Y%m%d')
+        created_date = datetime.today().strftime('%Y%m%d')
+        filename = f'469_fts_%s_%s_.xlsx' % (solution_date, created_date)
+        filepath = os.path.join(dir, filename)
+
+        with xlsxwriter.Workbook(filepath) as workbook:
             for day in self._solution._schedule.days():
                 worksheet = workbook.add_worksheet(day.date().strftime('%Y%m%d'))
                 
@@ -328,24 +374,11 @@ def run():
     config = configparser.ConfigParser()
     config.read("autoscheduler/config.ini")
 
-    engine = create_engine("postgresql+psycopg2://postgres:postgres@localhost:5432/sparkcell")
-    session = Session(engine)
-    result = session.scalars(select(Pilot))
-
-    personnel: list[Person] = []
-
-
-    # migrate this to personnel view
-    for user in result:
-        person = Person(user.id, user.last_name, user.first_name, user.ausm_tier)
-        personnel.append(person)
-    print(personnel)
-    exit()
-
     duties: list[Duty] = parse_csv(config["FILES"]["duty-schedule"], parse_duties)
     lines: list[Line] = parse_csv(config["FILES"]["flying-schedule"], parse_shell_lines)
     #personnel: list[Person] = parse_csv(config["FILES"]["lox"], parse_personnel)
-
+    personnel = get_personnel()
+    [print(person.id(), person._last_name, person._first_name, person._ausm_tier, person._assigned_org) for person in personnel]
 
     absences: list[AbsenceRequest] = parse_csv(config["FILES"]["absence-requests"], parse_absence_requests)
 
@@ -358,9 +391,7 @@ def run():
 
     printer = ExcelSolutionPrinter(solution, shell, personnel)
     dir = config['FILES']['output_dir']
-    date = solution._schedule.days()[0].date().strftime('%Y%m%d')
-    filename = '469_fts_' + date + '.xlsx'
-    printer.print(os.path.join(dir, filename))
+    printer.print(dir)
 
     print("Exiting Run")
 

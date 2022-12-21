@@ -121,6 +121,15 @@ OR     t.rsu_observer = 'X*'
 OR     t.rsu_observer = 'D'
 OR     t.rsu_observer = 'D*');
 
+INSERT INTO pilots_quals
+SELECT  pilots.id, quals.id
+FROM    t
+JOIN    pilots
+ON      pilots.prsn_id = t.prsn_id
+JOIN    quals
+ON      quals.name = 'PIT IP'
+AND     t.pit_ip = 'X';
+
 INSERT INTO orgs (name) VALUES ('M'), ('N'), ('O'), ('P'), ('X');
 
 INSERT INTO pilots_orgs 
