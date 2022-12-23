@@ -1,6 +1,6 @@
 from datetime import timedelta
 from ortools.sat.python import cp_model
-from scheduler.models import AbsenceRequest, Commitment, Day, Duty, DutyQual, FlightOrg, FlightQual, Line, Person
+from scheduler.models import AbsenceRequest, Commitment, Day, Duty, Line, Person, Qualification
 
 def get_commitments_for_ausm_tier(tier: int):
     if (tier == 1):
@@ -147,17 +147,20 @@ class ScheduleModel:
     def _constraint_personnel_qualified_for_duty(self):
         for day in self._shell.days():
             for duty in day.commitments(Duty):
-                duties_to_be_scheduled = [self._commit_vars[(day.date, duty.id(), person.id())] for person in self._personnel if person.is_qualified_for_duty(duty.type)]
+                duties_to_be_scheduled = [self._commit_vars[(day.date, duty.id(), person.id())] for person in self._personnel if person.is_qualified_for(Qualification('Duty', duty.type))]
                 self._model.Add(sum(duties_to_be_scheduled) == 1)
 
     def _constraint_personnel_qualified_for_PIT(self):
         for day in self._shell.days():
             for person in self._personnel:
-                forbidden_flights = [self._commit_vars[(day.date, l.id(), person.id())] for l in day.commitments(Line) if (l.flight_org == FlightOrg.X and not person.is_qualified_for_flight(FlightQual.PIT))]
+                forbidden_flights = [self._commit_vars[(day.date, l.id(), person.id())] for l in day.commitments(Line) if (l.flight_org == 'X' and not person.is_qualified_for(Qualification('Flight', 'PIT IP')))]
                 self._model.Add(sum(forbidden_flights) == 0)
 
-    def _add_duty_objective(self, duty_quals: DutyQual | list[DutyQual]):
-        epsilon = self._model.NewIntVar(0, 10, duty_quals.__str__() + "_eps")
+    def _add_duty_objective(self, duty_quals: str | list[str]):
+        # TODO: this needs to be tested with list of duties now!
+        # TODO: magic number -- 10
+        for duty_qual_list in duty_quals:
+            epsilon = self._model.NewIntVar(0, 10, duty_qual_list + "_eps")
 
         for person in self._personnel:
             duty_tours = []
@@ -206,7 +209,7 @@ class ScheduleModel:
             self._model.Add(sum(scheduled_commitments)  >= commitment_requirement - (MAX_AUSM_EPSILON - ausm_epsilon))
 
         # optimize for duties
-        quals = [[DutyQual.OPS_SUP, DutyQual.SOF, DutyQual.CONTROLLER, DutyQual.OBSERVER]]
+        quals = [['Operations Supervisor', 'SOF', 'RSU Controller', 'RSU Observer']]
         duty_epsilons = 0
         for qual in quals:
             duty_epsilons += self._add_duty_objective(qual)

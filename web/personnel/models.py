@@ -40,8 +40,17 @@ class PilotOrganization(models.Model):
             "org_id",
         )
 
+class QualificationType(models.Model):
+    id = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=64)
+
+    class Meta:
+        managed = False
+        db_table = 'qual_types'
+
 class Qualification(models.Model):
     id = models.IntegerField(primary_key=True)
+    type = models.ForeignKey(QualificationType, on_delete=models.CASCADE)
     name = models.CharField(max_length=64)
 
     class Meta:

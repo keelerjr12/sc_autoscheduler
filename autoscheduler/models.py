@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String 
+from sqlalchemy import Column, DateTime, Integer, String 
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import ForeignKey, Table
@@ -18,10 +18,20 @@ PilotOrganization = Table(
     Column("org_id", ForeignKey("orgs.id"), primary_key=True),
 )
 
+class QualificationType(Base):
+    __tablename__ = 'qual_types'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+
 class Qualification(Base):
     __tablename__ = 'quals'
 
     id = Column(Integer, primary_key=True)
+
+    type_id = Column(Integer, ForeignKey('qual_types.id'))
+    type = relationship('QualificationType')
+
     name = Column(String)
 
 PilotQualification = Table(
@@ -43,16 +53,14 @@ class Pilot(Base):
 
     quals = relationship('Qualification', secondary=PilotQualification)
 
-    #ops_sup = Column('operations_supervisor', Boolean)
-    #sof = Column('sof', Boolean)
-    #rsu_controller = Column('rsu_controller', Boolean)
-    #rsu_observer = Column('rsu_observer', Boolean)
+class ShellLine(Base):
+    __tablename__ = "shell_lines"
 
-    #pit_ip = Column(Boolean)
+    id = Column(Integer, primary_key=True)
+    num = Column(Integer)
+    start_date_time = Column(DateTime)
 
-    #addresses = relationship(
-    #    "Address", back_populates="user", cascade="all, delete-orphan"
-    #)
+    org_id = Column(Integer, ForeignKey('orgs.id'))
+    org = relationship('Organization')
 
-    #def __repr__(self):
-    #    return f"User(id={self.id!r}, name={self.name!r}, fullname={self.fullname!r})"
+    go = Column('fly_go', Integer)

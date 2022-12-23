@@ -27,7 +27,7 @@ def test_given_max_num_duties_single_qualified_person_when_solved_then_optimal_s
     absences = []
 
     controller = Person(1, "LastName", "FirstName", 4)
-    controller.qual_for_duty(DutyQual.CONTROLLER)
+    controller.qual((DutyQual.CONTROLLER)
     personnel = [controller]
 
     shell = ShellSchedule(lines, duties)
@@ -52,7 +52,7 @@ def test_given_greater_than_max_num_duties_single_qualified_person_when_solved_t
     absences = []
 
     controller = Person(1, "LastName", "FirstName", 4)
-    controller.qual_for_duty(DutyQual.CONTROLLER)
+    controller.qual((DutyQual.CONTROLLER)
     personnel = [controller]
 
     shell = ShellSchedule(lines, duties)
@@ -70,7 +70,7 @@ def test_given_single_duty_and_single_qualified_person_when_solved_then_duty_is_
     duties = [Duty("Tinder 1 Controller", DutyQual.CONTROLLER, datetime.strptime('7/29/2022 8:00:00 AM', '%m/%d/%Y %I:%M:%S %p'), datetime.strptime('7/29/2022 10:00:00 AM', '%m/%d/%Y %I:%M:%S %p'))]
 
     controller = Person(1, "LastName", "FirstName", 4)
-    controller.qual_for_duty(DutyQual.CONTROLLER)
+    controller.qual((DutyQual.CONTROLLER)
     personnel = [controller]
     absences = []
 

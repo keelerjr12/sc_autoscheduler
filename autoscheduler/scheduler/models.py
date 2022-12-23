@@ -1,36 +1,28 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from enum import Enum, Flag, auto
 
-class FlightOrg(Enum):
-    M = auto()
-    N = auto()
-    O = auto()
-    P = auto()
-    X = auto()
-    CHECK = auto()
+class Qualification:
+    def __init__(self, type: str, name: str):
+        self._type = type
+        self._name = name
 
-class DutyQual(Flag):
-    CONTROLLER = auto()
-    OBSERVER = auto()
-    RECORDER = auto()
-    SPOTTER = auto()
-    LONER = auto()
-    OPS_SUP = auto()
-    SOF = auto()
+    def type(self):
+        return self._type
 
-class FlightQual(Flag):
-    PIT = auto()
-    CHECK = auto()
+    def name(self):
+        return self._name
 
 class Person:
-
     def __init__(self, id: int, last_name: str, first_name: str, ausm_tier: int):
         self._id = id
         self._first_name = first_name
         self._last_name = last_name
-        self._duty_quals: DutyQual = DutyQual.CONTROLLER & DutyQual.OBSERVER
-        self._flight_quals: FlightQual = FlightQual.PIT & ~FlightQual.PIT
+
+        self._quals = {
+            'Duty': set(),
+            'Flight': set()
+        }
+
         self._assigned_org = None
         self._ausm_tier = ausm_tier
 
@@ -43,20 +35,14 @@ class Person:
     def id(self) -> int:
         return self._id
 
-    def assign_to(self, org: FlightOrg | None):
+    def assign_to(self, org: str | None):
         self._assigned_org = org
 
-    def qual_for_duty(self, type: DutyQual):
-        self._duty_quals = self._duty_quals | type
+    def qual(self, qualification: Qualification):
+        self._quals[qualification.type()].add(qualification.name())
 
-    def qual_for_flight(self, type: FlightQual):
-        self._flight_quals = self._flight_quals | type
-
-    def is_qualified_for_duty(self, type: DutyQual) -> bool:
-        return (self._duty_quals & type) != (DutyQual.CONTROLLER & ~DutyQual.CONTROLLER) ## TODO: This is a very hacky way for bitwise 0
-
-    def is_qualified_for_flight(self, type: FlightQual) -> bool:
-        return (self._flight_quals & type) != (FlightQual.PIT & ~FlightQual.PIT) ## TODO: This is a very hacky way for bitwise 0
+    def is_qualified_for(self, qualification: Qualification) -> bool:
+        return qualification.name() in self._quals[qualification.type()]
 
 class Commitment(ABC):
     #    TODO: issue with absence request; need to migrate to entity class
@@ -83,7 +69,7 @@ class Commitment(ABC):
 
 class Line(Commitment):
 
-    def __init__(self,number: int, org: FlightOrg, time_takeoff: datetime):
+    def __init__(self,number: int, org: str, time_takeoff: datetime):
         self.number = number
         self.flight_org = org
 
@@ -102,7 +88,7 @@ class Line(Commitment):
 
 class Duty(Commitment):
 
-    def __init__(self, name: str, type: DutyQual, sign_in_dt: datetime, sign_out_dt: datetime):
+    def __init__(self, name: str, type: str, sign_in_dt: datetime, sign_out_dt: datetime):
         assert(sign_in_dt <= sign_out_dt)
 
         self.name = name
@@ -113,7 +99,7 @@ class Duty(Commitment):
     def id(self):
         return self.name + self._sign_in_dt.strftime("%m/%d/%Y")
 
-    def is_type(self, duty_types: DutyQual | list[DutyQual]) -> bool:
+    def is_type(self, duty_types: str | list[str]) -> bool:
         if (not isinstance(duty_types, list)):
             return self.type == duty_types
 

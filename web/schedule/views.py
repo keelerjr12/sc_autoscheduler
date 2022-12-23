@@ -4,6 +4,7 @@ from django.http import HttpResponse, Http404
 from django.shortcuts import render, redirect
 import os
 import subprocess
+from schedule.models import Line
 
 @login_required
 def index(request):
@@ -11,8 +12,19 @@ def index(request):
     schedule_path = os.path.join(settings.MEDIA_ROOT, 'schedules')
     schedules = os.listdir(schedule_path)    
 
-    print(schedules)
-    context = {'schedules': schedules}
+    # TODO: need to account for auth_group
+    lines = Line.objects.select_related('org')
+    shell = {}
+
+    for line in lines:
+        start_date = line.start_date_time.date()
+
+        if start_date not in shell:
+            shell[start_date] = []
+
+        shell[start_date].append(line)
+
+    context = {'schedules': schedules, 'shell': shell}
 
     return render(request, 'schedule/index.html', context)
 
