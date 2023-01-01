@@ -7,7 +7,7 @@ class Organization(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'orgs'
+        db_table = 'org'
 
 class Line(models.Model):
     id = models.IntegerField(primary_key=True)
@@ -21,4 +21,4 @@ class Line(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'shell_lines'
+        db_table = 'shell_line'

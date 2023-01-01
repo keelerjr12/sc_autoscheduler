@@ -1,60 +1,85 @@
-DROP TABLE pilots_orgs CASCADE;
-DROP TABLE pilots_quals CASCADE;
-DROP TABLE quals CASCADE;
-DROP TABLE qual_types CASCADE;
-DROP TABLE pilots CASCADE;
+DROP TABLE pilot_org CASCADE;
+DROP TABLE pilot_qual CASCADE;
+DROP TABLE qual CASCADE;
+DROP TABLE qual_type CASCADE;
+DROP TABLE pilot CASCADE;
 
-DROP TABLE shell_lines CASCADE;
+DROP TABLE shell_line CASCADE;
+DROP TABLE shell_duty CASCADE;
 
-DROP TABLE orgs CASCADE;
+DROP TABLE duty CASCADE;
+DROP TABLE duty_type CASCADE;
 
-CREATE TABLE IF NOT EXISTS pilots (
+DROP TABLE org CASCADE;
+
+CREATE TABLE IF NOT EXISTS pilot (
     id              SERIAL PRIMARY KEY,
     auth_group_id   INT REFERENCES auth_group(id) NOT NULL,
-    prsn_id         INT,
+    tims_id         INT,
     last_name       VARCHAR NOT NULL,
     first_name      VARCHAR NOT NULL,
     ausm_tier       INT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS qual_types (
+CREATE TABLE IF NOT EXISTS qual_type (
     id              SERIAL PRIMARY KEY,
     name            VARCHAR NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS quals (
+CREATE TABLE IF NOT EXISTS qual (
     id              SERIAL PRIMARY KEY,
-    type_id         INT REFERENCES qual_types(id) NOT NULL, 
+    type_id         INT REFERENCES qual_type(id) NOT NULL, 
     name            VARCHAR NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS pilots_quals (
-    pilot_id        INT REFERENCES pilots(id) NOT NULL,
-    qual_id         INT REFERENCES quals(id) NOT NULL,
+CREATE TABLE IF NOT EXISTS pilot_qual (
+    pilot_id        INT REFERENCES pilot(id) NOT NULL,
+    qual_id         INT REFERENCES qual(id) NOT NULL,
     PRIMARY KEY     (pilot_id, qual_id)
 );
 
-CREATE TABLE IF NOT EXISTS orgs (
+CREATE TABLE IF NOT EXISTS org (
     id              SERIAL PRIMARY KEY,
     name            VARCHAR NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS pilots_orgs (
-    pilot_id        INT REFERENCES pilots(id) NOT NULL,
-    org_id          INT REFERENCES orgs(id) NOT NULL,
+CREATE TABLE IF NOT EXISTS pilot_org (
+    pilot_id        INT REFERENCES pilot(id) NOT NULL,
+    org_id          INT REFERENCES org(id) NOT NULL,
     PRIMARY KEY     (pilot_id, org_id)
 );
 
-CREATE TABLE IF NOT EXISTS shell_lines (
+CREATE TABLE IF NOT EXISTS shell_line (
     id              SERIAL PRIMARY KEY,
     auth_group_id   INT REFERENCES auth_group(id) NOT NULL,
     num             INT NOT NULL, 
     start_date_time TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    org_id          INT REFERENCES orgs(id),
+    org_id          INT REFERENCES org(id),
     fly_go          INT NOT NULL
 );
 
-CREATE TEMPORARY TABLE tmp_personnel (
+CREATE TABLE IF NOT EXISTS duty_type (
+    id              SERIAL PRIMARY KEY,
+    auth_group_id   INT REFERENCES auth_group(id) NOT NULL,
+    name            VARCHAR(64) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS duty (
+    id              SERIAL PRIMARY KEY,
+    auth_group_id   INT REFERENCES auth_group(id) NOT NULL,
+    duty_type_id    INT REFERENCES duty_type(id) NOT NULL,
+    name            VARCHAR(64) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS shell_duty (
+    id              SERIAL PRIMARY KEY,
+    auth_group_id   INT REFERENCES auth_group(id) NOT NULL,
+    duty_id         INT REFERENCES duty(id) NOT NULL,
+    start_date_time TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    end_date_time   TIMESTAMP WITHOUT TIME ZONE NOT NULL
+);
+
+CREATE TEMPORARY TABLE tmp_person (
     auth_group_id INT NOT NULL, 
     last_name VARCHAR NOT NULL,
     first_name VARCHAR NOT NULL,
@@ -89,80 +114,80 @@ CREATE TEMPORARY TABLE tmp_personnel (
     assigned_org VARCHAR
 );
 
-\COPY tmp_personnel FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/lox.csv' delimiter ',' CSV HEADER; 
+\COPY tmp_person FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/lox.csv' delimiter ',' CSV HEADER; 
 
-INSERT INTO pilots (auth_group_id, prsn_id, last_name, first_name, ausm_tier) SELECT auth_group_id, prsn_id, last_name, first_name, ausm_tier FROM tmp_personnel;
+INSERT INTO pilot (auth_group_id, tims_id, last_name, first_name, ausm_tier) SELECT auth_group_id, prsn_id, last_name, first_name, ausm_tier FROM tmp_person;
 
-INSERT INTO qual_types (name) VALUES ('Duty'), ('Flight');
-INSERT INTO quals (type_id, name) VALUES (1, 'Operations Supervisor'), (1, 'SOF'), (1, 'RSU Controller'), (1, 'RSU Observer'), (2, 'PIT IP');
+INSERT INTO qual_type (name) VALUES ('Duty'), ('Flight');
+INSERT INTO qual (type_id, name) VALUES (1, 'Operations Supervisor'), (1, 'SOF'), (1, 'RSU Controller'), (1, 'RSU Observer'), (2, 'PIT IP');
 
-INSERT INTO pilots_quals
-SELECT  pilots.id, quals.id
-FROM    tmp_personnel
-JOIN    pilots
-ON      pilots.prsn_id = tmp_personnel.prsn_id
-JOIN    quals
-ON      quals.name = 'Operations Supervisor'
-AND     tmp_personnel.ops_supervisor = 'X';
+INSERT INTO pilot_qual
+    SELECT  pilot.id, qual.id
+    FROM    tmp_person
+JOIN        pilot
+ON          pilot.tims_id = tmp_person.prsn_id
+JOIN        qual
+ON          qual.name = 'Operations Supervisor'
+AND         tmp_person.ops_supervisor = 'X';
 
-INSERT INTO pilots_quals
-SELECT  pilots.id, quals.id
-FROM    tmp_personnel
-JOIN    pilots
-ON      pilots.prsn_id = tmp_personnel.prsn_id
-JOIN    quals
-ON      quals.name = 'SOF'
-AND    (tmp_personnel.sof = 'X'
-OR     tmp_personnel.sof = 'X*'
-OR     tmp_personnel.sof = 'D'
-OR     tmp_personnel.sof = 'D*');
+INSERT INTO pilot_qual
+    SELECT  pilot.id, qual.id
+    FROM    tmp_person
+JOIN        pilot
+ON          pilot.tims_id = tmp_person.prsn_id
+JOIN        qual
+ON          qual.name = 'SOF'
+AND         (tmp_person.sof = 'X'
+OR          tmp_person.sof = 'X*'
+OR          tmp_person.sof = 'D'
+OR          tmp_person.sof = 'D*');
 
-INSERT INTO pilots_quals
-SELECT  pilots.id, quals.id
-FROM    tmp_personnel
-JOIN    pilots
-ON      pilots.prsn_id = tmp_personnel.prsn_id
-JOIN    quals
-ON      quals.name = 'RSU Controller'
-AND    (tmp_personnel.rsu_controller = 'X'
-OR     tmp_personnel.rsu_controller = 'X*'
-OR     tmp_personnel.rsu_controller = 'D'
-OR     tmp_personnel.rsu_controller = 'D*');
+INSERT INTO pilot_qual
+    SELECT  pilot.id, qual.id
+    FROM    tmp_person
+JOIN        pilot
+ON          pilot.tims_id = tmp_person.prsn_id
+JOIN        qual
+ON          qual.name = 'RSU Controller'
+AND         (tmp_person.rsu_controller = 'X'
+OR          tmp_person.rsu_controller = 'X*'
+OR          tmp_person.rsu_controller = 'D'
+OR          tmp_person.rsu_controller = 'D*');
 
-INSERT INTO pilots_quals
-SELECT  pilots.id, quals.id
-FROM    tmp_personnel
-JOIN    pilots
-ON      pilots.prsn_id = tmp_personnel.prsn_id
-JOIN    quals
-ON      quals.name = 'RSU Observer'
-AND    (tmp_personnel.rsu_observer = 'X'
-OR     tmp_personnel.rsu_observer = 'X*'
-OR     tmp_personnel.rsu_observer = 'D'
-OR     tmp_personnel.rsu_observer = 'D*');
+INSERT INTO pilot_qual
+    SELECT  pilot.id, qual.id
+    FROM    tmp_person
+JOIN        pilot
+ON          pilot.tims_id = tmp_person.prsn_id
+JOIN        qual
+ON          qual.name = 'RSU Observer'
+AND         (tmp_person.rsu_observer = 'X'
+OR          tmp_person.rsu_observer = 'X*'
+OR          tmp_person.rsu_observer = 'D'
+OR          tmp_person.rsu_observer = 'D*');
 
-INSERT INTO pilots_quals
-SELECT  pilots.id, quals.id
-FROM    tmp_personnel
-JOIN    pilots
-ON      pilots.prsn_id = tmp_personnel.prsn_id
-JOIN    quals
-ON      quals.name = 'PIT IP'
-AND     tmp_personnel.pit_ip = 'X';
+INSERT INTO pilot_qual
+    SELECT  pilot.id, qual.id
+    FROM    tmp_person
+JOIN        pilot
+ON          pilot.tims_id = tmp_person.prsn_id
+JOIN        qual
+ON          qual.name = 'PIT IP'
+AND         tmp_person.pit_ip = 'X';
 
-INSERT INTO orgs (name) VALUES ('M'), ('N'), ('O'), ('P'), ('X');
+INSERT INTO org (name) VALUES ('M'), ('N'), ('O'), ('P'), ('X');
 
-INSERT INTO pilots_orgs 
-SELECT  pilots.id, orgs.id
-FROM    tmp_personnel
-JOIN    pilots
-ON      pilots.prsn_id = tmp_personnel.prsn_id
-JOIN    orgs
-ON      orgs.name = tmp_personnel.assigned_org;
+INSERT INTO pilot_org 
+    SELECT  pilot.id, org.id
+    FROM    tmp_person
+JOIN        pilot
+ON          pilot.tims_id = tmp_person.prsn_id
+JOIN        org
+ON          org.name = tmp_person.assigned_org;
 
-DROP TABLE tmp_personnel;
+DROP TABLE tmp_person; 
 
-CREATE TEMPORARY TABLE tmp_lines (
+CREATE TEMPORARY TABLE tmp_line (
     auth_group_id   INT NOT NULL, 
     num             INT NOT NULL,
     start_date_time TIMESTAMP WITHOUT TIME ZONE NOT NULL,
@@ -171,13 +196,53 @@ CREATE TEMPORARY TABLE tmp_lines (
     fly_go          INT NOT NULL 
 );
 
-\COPY tmp_lines FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/flying_schedule.csv' delimiter ',' CSV HEADER; 
+\COPY tmp_line FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/flying_schedule.csv' delimiter ',' CSV HEADER; 
 
-INSERT INTO shell_lines (auth_group_id, num, start_date_time, org_id, fly_go) 
-    SELECT auth_group_id, num, start_date_time, orgs.id, fly_go 
-    FROM tmp_lines 
-    JOIN orgs 
-    ON orgs.name = SUBSTRING(tmp_lines.org_name, POSITION('- ' IN tmp_lines.org_name)+2, 1)
+INSERT INTO shell_line (auth_group_id, num, start_date_time, org_id, fly_go) 
+    SELECT auth_group_id, num, start_date_time, org.id, fly_go 
+    FROM tmp_line 
+    JOIN org 
+    ON org.name = SUBSTRING(tmp_line.org_name, POSITION('- ' IN tmp_line.org_name)+2, 1)
     ORDER BY start_date_time, num;
 
-DROP TABLE tmp_lines;
+DROP TABLE tmp_line;
+
+INSERT INTO duty_type (auth_group_id, name) VALUES (1, 'Operations Supervisor'), (1, 'SOF'), (1, 'RSU Controller'), (1, 'RSU Observer');
+INSERT INTO duty (auth_group_id, duty_type_id, name) 
+VALUES 
+    (1, 1, 'OPS SUP 1'), 
+    (1, 1, 'OPS SUP 2'), 
+    (1, 2, 'SOF 1'), 
+    (1, 2, 'SOF 2'), 
+    (1, 2, 'SOF 3'),
+    (1, 3, 'Tinder 1 CONTROLLER'),
+    (1, 3, 'Tinder 2 CONTROLLER'),
+    (1, 3, 'Tinder 3 CONTROLLER'),
+    (1, 3, 'Tinder 4 CONTROLLER'),
+    (1, 4, 'Tinder 1 OBSERVER'),
+    (1, 4, 'Tinder 2 OBSERVER'),
+    (1, 4, 'Tinder 3 OBSERVER'),
+    (1, 4, 'Tinder 4 OBSERVER');
+
+CREATE TEMPORARY TABLE tmp_duty (
+    auth_group_id INT,
+    duty_asgnmt_id INT,
+    duty_id INT,
+    duty_catg_cd VARCHAR,
+    name_nm VARCHAR,
+    trnorg_name_nm VARCHAR,
+    asgn_trnorg_name_nm VARCHAR,
+    sched_sign_in_date_time_dt TIMESTAMP WITHOUT TIME ZONE,
+    sched_sign_out_date_time_dt TIMESTAMP WITHOUT TIME ZONE,
+    seq_num_in INT
+);
+
+\COPY tmp_duty FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/duty_schedule.csv' delimiter ',' CSV HEADER; 
+
+INSERT INTO shell_duty (auth_group_id, duty_id, start_date_time, end_date_time)
+    SELECT tmp_duty.auth_group_id, duty.id, sched_sign_in_date_time_dt, sched_sign_out_date_time_dt
+    FROM tmp_duty 
+    JOIN duty 
+    ON duty.name = tmp_duty.name_nm;
+
+DROP TABLE tmp_duty;

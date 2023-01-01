@@ -6,10 +6,22 @@ from printers import get_printer
 
 from data import Session
 from sqlalchemy import select
-from models import Pilot, ShellLine
+from models import Pilot, ShellDuty, ShellLine
 
 from scheduler.models import AbsenceRequest, Duty, Line, Person, Qualification
 from scheduler.solver import ScheduleModel, ScheduleSolver, ShellSchedule
+
+def get_duties() -> list[Duty]:
+    duties: list[Duty] = []
+
+    with Session() as session:
+        result = session.scalars(select(ShellDuty))
+        
+        for duty_dto in result:
+            duty = Duty(duty_dto.duty.name, duty_dto.duty.duty_type.name, duty_dto.start_date_time, duty_dto.end_date_time)
+            duties.append(duty)
+
+    return duties
 
 def get_lines() -> list[Line]:
     with Session() as session:
@@ -169,9 +181,10 @@ def run():
     config = configparser.ConfigParser()
     config.read("autoscheduler/config.ini")
 
-    duties: list[Duty] = parse_csv(config["FILES"]["duty-schedule"], parse_duties)
+    #duties: list[Duty] = parse_csv(config["FILES"]["duty-schedule"], parse_duties)
     #lines: list[Line] = parse_csv(config["FILES"]["flying-schedule"], parse_shell_lines)
     #personnel: list[Person] = parse_csv(config["FILES"]["lox"], parse_personnel)
+    duties: list[Duty] = get_duties()
     lines = get_lines()
     personnel = get_personnel()
     absences: list[AbsenceRequest] = parse_csv(config["FILES"]["absence-requests"], parse_absence_requests)
