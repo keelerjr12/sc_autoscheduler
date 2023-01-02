@@ -91,3 +91,17 @@ class ShellDuty(Base):
 
     start_date_time = Column(DateTime)
     end_date_time = Column(DateTime)
+
+class AbsenceRequestDto(Base):
+    __tablename__ = 'absence_request'
+
+    id = Column(Integer, primary_key=True)
+    person_id = Column(Integer, ForeignKey('pilot.id'))
+    person = relationship('Pilot')
+
+    start_date_time = Column(DateTime)
+    end_date_time = Column(DateTime)
+    occur_start_date_time = Column(DateTime)
+    occur_end_date_time = Column(DateTime)
+
+    day_of_week_ptn = Column(Integer)

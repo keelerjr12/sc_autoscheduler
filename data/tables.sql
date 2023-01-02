@@ -1,3 +1,5 @@
+DROP TABLE absence_request CASCADE;
+
 DROP TABLE pilot_org CASCADE;
 DROP TABLE pilot_qual CASCADE;
 DROP TABLE qual CASCADE;
@@ -77,6 +79,17 @@ CREATE TABLE IF NOT EXISTS shell_duty (
     duty_id         INT REFERENCES duty(id) NOT NULL,
     start_date_time TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     end_date_time   TIMESTAMP WITHOUT TIME ZONE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS absence_request (
+    id                      SERIAL PRIMARY KEY,
+    person_id               INT REFERENCES pilot(id) NOT NULL,
+    reason                  VARCHAR(1024),
+    start_date_time         TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    end_date_time           TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    occur_start_date_time   TIMESTAMP WITHOUT TIME ZONE,
+    occur_end_date_time     TIMESTAMP WITHOUT TIME ZONE,
+    day_of_week_ptn         INT
 );
 
 CREATE TEMPORARY TABLE tmp_person (
@@ -185,8 +198,6 @@ ON          pilot.tims_id = tmp_person.prsn_id
 JOIN        org
 ON          org.name = tmp_person.assigned_org;
 
-DROP TABLE tmp_person; 
-
 CREATE TEMPORARY TABLE tmp_line (
     auth_group_id   INT NOT NULL, 
     num             INT NOT NULL,
@@ -204,8 +215,6 @@ INSERT INTO shell_line (auth_group_id, num, start_date_time, org_id, fly_go)
     JOIN org 
     ON org.name = SUBSTRING(tmp_line.org_name, POSITION('- ' IN tmp_line.org_name)+2, 1)
     ORDER BY start_date_time, num;
-
-DROP TABLE tmp_line;
 
 INSERT INTO duty_type (auth_group_id, name) VALUES (1, 'Operations Supervisor'), (1, 'SOF'), (1, 'RSU Controller'), (1, 'RSU Observer');
 INSERT INTO duty (auth_group_id, duty_type_id, name) 
@@ -245,4 +254,33 @@ INSERT INTO shell_duty (auth_group_id, duty_id, start_date_time, end_date_time)
     JOIN duty 
     ON duty.name = tmp_duty.name_nm;
 
-DROP TABLE tmp_duty;
+CREATE TEMPORARY TABLE tmp_absence_request (
+    status_rqst_id              INT,
+    base_rsrc_id                INT,
+    prsn_id                     INT,
+    last_name_nm                VARCHAR,
+    first_name_nm               VARCHAR,
+    rsrc_stat_name_nm           VARCHAR,
+    rsrc_stat_resn_name_nm      VARCHAR,
+    resn_tx                     VARCHAR,
+    start_date_time_dt          TIMESTAMP WITHOUT TIME ZONE,
+    end_date_time_dt            TIMESTAMP WITHOUT TIME ZONE,
+    occur_start_date_time_dt    TIMESTAMP WITHOUT TIME ZONE,
+    recur_end_date_time_dt      TIMESTAMP WITHOUT TIME ZONE,
+    patt_day_of_week_in         VARCHAR
+);
+
+\COPY tmp_absence_request FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/absence_requests.csv' WITH (delimiter ',', FORMAT csv, HEADER, force_null(occur_start_date_time_dt))
+
+INSERT INTO absence_request (person_id, reason, start_date_time, end_date_time, occur_start_date_time, occur_end_date_time, day_of_week_ptn)
+    SELECT 
+        pilot.id,
+        tmp_absence_request.resn_tx,
+        tmp_absence_request.start_date_time_dt,
+        tmp_absence_request.end_date_time_dt,
+        tmp_absence_request.occur_start_date_time_dt,
+        tmp_absence_request.recur_end_date_time_dt,
+        CAST(NULLIF(tmp_absence_request.patt_day_of_week_in, '') AS INT)
+    FROM tmp_absence_request 
+    JOIN pilot 
+    ON pilot.tims_id = tmp_absence_request.prsn_id;

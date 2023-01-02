@@ -2,57 +2,11 @@ import csv
 import configparser
 from datetime import datetime, timedelta
 from enum import IntEnum
+from repository import DatabaseRepository
 from printers import get_printer
 
-from data import Session
-from sqlalchemy import select
-from models import Pilot, ShellDuty, ShellLine
-
-from scheduler.models import AbsenceRequest, Duty, Line, Person, Qualification
+from scheduler.models import AbsenceRequest, Duty, Line, Person 
 from scheduler.solver import ScheduleModel, ScheduleSolver, ShellSchedule
-
-def get_duties() -> list[Duty]:
-    duties: list[Duty] = []
-
-    with Session() as session:
-        result = session.scalars(select(ShellDuty))
-        
-        for duty_dto in result:
-            duty = Duty(duty_dto.duty.name, duty_dto.duty.duty_type.name, duty_dto.start_date_time, duty_dto.end_date_time)
-            duties.append(duty)
-
-    return duties
-
-def get_lines() -> list[Line]:
-    with Session() as session:
-        result = session.scalars(select(ShellLine))
-
-        lines: list[Line] = []
-
-        for line_dto in result:
-            line = Line(line_dto.num, line_dto.org.name, line_dto.start_date_time)
-            lines.append(line)
-        
-    return lines
-
-def get_personnel() -> list[Person]:
-    with Session() as session:
-        result = session.scalars(select(Pilot))
-        
-        personnel: list[Person] = []
-
-        for user in result:
-            person = Person(user.id, user.last_name, user.first_name, user.ausm_tier)
-
-            if (len(user.assigned_org) > 0):
-                org = user.assigned_org[0].name
-                person.assign_to(org)
-            for qual in user.quals:
-                person.qual(Qualification(qual.type.name, qual.name))
-
-            personnel.append(person)
-    
-    return personnel
 
 def parse_csv(file: str, parse_fn):
     all_objs = []
@@ -156,6 +110,7 @@ def parse_absence_requests(str: str):
     recur_end_dt = datetime.strptime(str[11], '%m/%d/%Y %I:%M:%S %p')
     weekday_ptn = str[12]
 
+    # TODO: moving this to database as well -- encapsulate
     if (weekday_ptn == ""):
         return AbsenceRequest(prsn_id, start_dt, end_dt)
 
@@ -184,11 +139,14 @@ def run():
     #duties: list[Duty] = parse_csv(config["FILES"]["duty-schedule"], parse_duties)
     #lines: list[Line] = parse_csv(config["FILES"]["flying-schedule"], parse_shell_lines)
     #personnel: list[Person] = parse_csv(config["FILES"]["lox"], parse_personnel)
-    duties: list[Duty] = get_duties()
-    lines = get_lines()
-    personnel = get_personnel()
-    absences: list[AbsenceRequest] = parse_csv(config["FILES"]["absence-requests"], parse_absence_requests)
-
+    #absences: list[AbsenceRequest] = parse_csv(config["FILES"]["absence-requests"], parse_absence_requests)
+    
+    repo = DatabaseRepository()
+    personnel = repo.get_personnel()
+    lines = repo.get_lines()
+    duties = repo.get_duties()
+    absences = repo.get_absences()
+   
     shell = ShellSchedule(lines, duties)
     model = ScheduleModel(shell, personnel, absences)
     model.add_all_contraints()
