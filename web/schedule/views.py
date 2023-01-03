@@ -1,3 +1,4 @@
+from datetime import datetime, time, timedelta
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.http import HttpResponse, Http404
@@ -35,7 +36,7 @@ def index(request):
 
         shell[start_date].append(line)
 
-    context = {'schedules': schedules, 'shell': shell, 'shell_duties': shell_duties}
+    context = {'schedules': schedules, 'shell': shell, 'shell_duties': shell_duties }
 
     return render(request, 'schedule/index.html', context)
 

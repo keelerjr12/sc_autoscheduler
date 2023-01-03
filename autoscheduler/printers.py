@@ -1,6 +1,5 @@
 
 from abc import ABC, abstractmethod
-import configparser
 from scheduler.models import Duty, Line, Person
 from scheduler.solver import ScheduleSolution, time_between
 import xlsxwriter
@@ -193,13 +192,3 @@ class ExcelSolutionPrinter():
                         worksheet.write(row, col + 3, line._person._last_name + ', ' + line._person._first_name)
                     
                     row = row + 1
-
-def get_printer(printer_type: str, config: configparser.ConfigParser, solution: ScheduleSolution) -> SolutionPrinter:
-    if (printer_type.lower() == 'html'):
-        dir = config['FILES']['output_dir']
-        return HtmlSolutionPrinter(solution, dir)
-    elif (printer_type.lower() == 'excel'):
-        dir = config['FILES']['output_dir']
-        return ExcelSolutionPrinter(solution, dir)
-    
-    return ConsoleSolutionPrinter(solution)
