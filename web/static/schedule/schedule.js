@@ -7,8 +7,13 @@ function showTab(tab) {
     x[currentTab].style.display = "block";
 }
 
+function hideTab(tab) {
+    let x = document.getElementsByClassName("tab");
+    x[currentTab].style.display = "none";
+}
+
 function prevNext(increment) {
-    alert('hey');
+    hideTab(currentTab);
     currentTab += increment;
     showTab(currentTab);
 }

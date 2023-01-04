@@ -1,0 +1,7 @@
+.cell > span {
+    visibility: visible;
+}
+
+.cell > select {
+    visibility: collapse;
+}

@@ -14,13 +14,16 @@ def map_to_viewmodel(p: Pilot):
         org = p.org.all()[0].name
 
     pilot = {
+        'id': p.id,
         'name': f'%s, %s' % (p.last_name, p.first_name),
         'assigned_org': org,
-        'ops_supervisor': 'X' if 'Operations Supervisor' in quals.keys() else '',
-        'sof': 'X' if 'SOF' in quals.keys() else '',
-        'rsu_controller': 'X' if 'RSU Controller' in quals.keys() else '',
-        'rsu_observer': 'X' if 'RSU Observer' in quals.keys() else '',
-        'pit_ip': 'X' if 'PIT IP' in quals.keys() else ''
+        'quals': {
+            'ops_supervisor': 'X' if 'Operations Supervisor' in quals.keys() else '',
+            'sof': 'X' if 'SOF' in quals.keys() else '',
+            'rsu_controller': 'X' if 'RSU Controller' in quals.keys() else '',
+            'rsu_observer': 'X' if 'RSU Observer' in quals.keys() else '',
+            'pit_ip': 'X' if 'PIT IP' in quals.keys() else ''
+        }
     } 
 
     return pilot
@@ -31,7 +34,9 @@ def index(request):
 
     pilot_rs = Pilot.objects.filter(auth_group__name__in=request.user.groups.values_list('name', flat=True)).prefetch_related('quals', 'org')
     pilots = [map_to_viewmodel(p) for p in pilot_rs]
+    flight_orgs = ['', 'M', 'N', 'O', 'P', 'X']
+    quals = ['', 'X']
 
-    context = {'header': header, 'pilots': pilots}
+    context = {'header': header, 'pilots': pilots, 'flight_orgs': flight_orgs, 'quals': quals}
 
     return render(request, 'personnel/index.html', context)
