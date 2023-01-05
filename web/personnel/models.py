@@ -58,10 +58,13 @@ class Qualification(models.Model):
         db_table = 'qual'
 
 class PilotQualification(models.Model):
-    pilot_id = models.ForeignKey(Pilot, db_column='pilot_id', on_delete=models.CASCADE)
-    qual_id = models.ForeignKey(Qualification, db_column='qual_id', on_delete=models.CASCADE)
+    pilot = models.ForeignKey(Pilot, db_column='pilot_id', on_delete=models.CASCADE, primary_key=True)
+    qual = models.ForeignKey(Qualification, db_column='qual_id', on_delete=models.CASCADE)
 
     class Meta:
         managed = False
         db_table = 'pilot_qual'
-
+        unique_together = (
+            "pilot_id",
+            "qual_id"
+        )

@@ -37,6 +37,18 @@ function edit_clicked(event) {
     toggle_vis(row, 'options', 'block');
 }
 
+function map_values(val) {
+    mapped_vals = {
+        'ops_supervisor': 'Operations Supervisor',
+        'sof': 'SOF',
+        'rsu_controller': 'RSU Controller',
+        'rsu_observer': 'RSU Observer',
+        'pit_ip': 'PIT IP'
+    };
+
+    return mapped_vals[val]
+}
+
 function save_clicked(event) {
     let row = event.target.parentElement.parentElement.parentElement;
     const id = row.id;
@@ -45,6 +57,7 @@ function save_clicked(event) {
     data['pilot_id'] = id;
 
     const cells = row.getElementsByClassName('cell');
+    quals = {};
     Array.from(cells).forEach(cell => {
         const sel = cell.getElementsByTagName('select')[0];
         const select_id = sel.id;
@@ -53,8 +66,10 @@ function save_clicked(event) {
         const val = cell.getElementsByClassName('value')[0];
         val.textContent = select_opt;
 
-        data[select_id] = select_opt;
+        quals[map_values(select_id)] = select_opt;
     });
+
+    data['quals'] = quals;
 
     let save = event.target.parentElement;
     save.style.display = 'none';
@@ -70,5 +85,20 @@ function save_clicked(event) {
 }
 
 function send_data(data) {
-    console.log(data);
+    const httpRequest = new XMLHttpRequest();
+    httpRequest.onreadystatechange = () => {
+        if (httpRequest.readyState === XMLHttpRequest.DONE) {
+            if (httpRequest.status === 200) {
+                console.log("Data saved");
+            }
+        }
+    };
+
+    httpRequest.open('POST', '/personnel/' + data.pilot_id);
+    httpRequest.setRequestHeader('Content-Type', 'application/json');
+
+    const csrfToken = Cookies.get('csrftoken');
+    httpRequest.setRequestHeader('X-CSRFToken', csrfToken);
+
+    httpRequest.send(JSON.stringify(data));
 }
