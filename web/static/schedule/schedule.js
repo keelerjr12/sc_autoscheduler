@@ -15,5 +15,10 @@ function hideTab(tab) {
 function prevNext(increment) {
     hideTab(currentTab);
     currentTab += increment;
+    if (currentTab == 0) {
+        let prevBtn = document.querySelector('#prevBtn');
+        prevBtn.style.display = "none";
+    }
+
     showTab(currentTab);
 }

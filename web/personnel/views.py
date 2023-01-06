@@ -3,8 +3,7 @@ from django.http.request import HttpRequest
 from django.http.response import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-import csv
-from .models import Pilot, PilotQualification, Qualification, QualificationType
+from .models import Pilot, PilotQualification, Qualification
 
 def map_to_viewmodel(p: Pilot):
     quals = {}
@@ -46,7 +45,6 @@ def index(request):
 
 @login_required
 def person(request: HttpRequest, id: int):
-    print("made it here")
 
     if request.method == 'POST':
         data = json.loads(request.body)
@@ -59,10 +57,9 @@ def person(request: HttpRequest, id: int):
                 quals_to_remove.append(qual)
             else:
                 quals_to_add.append(qual)
-       
-        for qual in Qualification.objects.filter(name__in=quals_to_add):
-            defaults = {'pilot_id': data['pilot_id'], 'qual_id': qual.id}
-            PilotQualification.objects.update_or_create(defaults=defaults, pilot_id=data['pilot_id'], qual_id=qual.id)
+
+        pilot_quals  = [PilotQualification(pilot_id=data['pilot_id'], qual_id=qual.id) for qual in Qualification.objects.filter(name__in=quals_to_add)]
+        PilotQualification.objects.bulk_create(pilot_quals, ignore_conflicts=True)
 
         PilotQualification.objects.filter(pilot_id=data['pilot_id'], qual__name__in=quals_to_remove).delete()
 

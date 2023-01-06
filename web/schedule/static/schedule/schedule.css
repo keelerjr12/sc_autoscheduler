@@ -1,3 +1,18 @@
+.schedule-nav {
+}
+
+.main {
+
+}
+
 .tab {
+    display: none;
+}
+
+#prevBtn {
+    visibility: hidden;
+}
+
+#buildBtn {
     display: none;
 }

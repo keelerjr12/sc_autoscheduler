@@ -3,5 +3,9 @@
 }
 
 .cell > select {
-    visibility: collapse;
+    display: none;
+}
+
+.save {
+    display: none;
 }
