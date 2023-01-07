@@ -132,7 +132,17 @@ CREATE TEMPORARY TABLE tmp_person (
 INSERT INTO pilot (auth_group_id, tims_id, last_name, first_name, ausm_tier) SELECT auth_group_id, prsn_id, last_name, first_name, ausm_tier FROM tmp_person;
 
 INSERT INTO qual_type (name) VALUES ('Duty'), ('Flight');
-INSERT INTO qual (type_id, name) VALUES (1, 'Operations Supervisor'), (1, 'SOF'), (1, 'RSU Controller'), (1, 'RSU Observer'), (2, 'PIT IP');
+INSERT INTO qual (type_id, name) 
+VALUES 
+    (1, 'Operations Supervisor'), 
+    (1, 'SOF'), 
+    (1, 'RSU Controller'), 
+    (1, 'RSU Observer'), 
+    (2, 'IPC Pilot'),
+    (2, 'FPC Pilot'),
+    (2, 'FCF Pilot'),
+    (2, 'PIT IP'),
+    (2, 'SEFE');
 
 INSERT INTO pilot_qual
     SELECT  pilot.id, qual.id
@@ -185,8 +195,48 @@ INSERT INTO pilot_qual
 JOIN        pilot
 ON          pilot.tims_id = tmp_person.prsn_id
 JOIN        qual
+ON          qual.name = 'IPC Pilot'
+AND         (tmp_person.ipc_pilot = 'X'
+OR          tmp_person.ipc_pilot = 'P'
+OR          tmp_person.ipc_pilot = 'U');
+
+INSERT INTO pilot_qual
+    SELECT  pilot.id, qual.id
+    FROM    tmp_person
+JOIN        pilot
+ON          pilot.tims_id = tmp_person.prsn_id
+JOIN        qual
+ON          qual.name = 'FPC Pilot'
+AND         (tmp_person.fpc_pilot = 'X'
+OR          tmp_person.fpc_pilot = 'P'
+OR          tmp_person.fpc_pilot = 'U');
+
+INSERT INTO pilot_qual
+    SELECT  pilot.id, qual.id
+    FROM    tmp_person
+JOIN        pilot
+ON          pilot.tims_id = tmp_person.prsn_id
+JOIN        qual
+ON          qual.name = 'FCF Pilot'
+AND         tmp_person.fcf_pilot = 'X';
+
+INSERT INTO pilot_qual
+    SELECT  pilot.id, qual.id
+    FROM    tmp_person
+JOIN        pilot
+ON          pilot.tims_id = tmp_person.prsn_id
+JOIN        qual
 ON          qual.name = 'PIT IP'
 AND         tmp_person.pit_ip = 'X';
+
+INSERT INTO pilot_qual
+    SELECT  pilot.id, qual.id
+    FROM    tmp_person
+JOIN        pilot
+ON          pilot.tims_id = tmp_person.prsn_id
+JOIN        qual
+ON          qual.name = 'SEFE'
+AND         tmp_person.sefe = 'X';
 
 INSERT INTO org (name) VALUES ('M'), ('N'), ('O'), ('P'), ('X');
 

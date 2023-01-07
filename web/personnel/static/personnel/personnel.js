@@ -25,7 +25,7 @@ function toggle_vis(row, className, display_opt) {
 }
 
 function edit_clicked(event) {
-    let edit_delete = event.target.parentElement;
+    let edit_delete = event.currentTarget.parentElement;
     edit_delete.style.display = 'none';
 
     let cell = edit_delete.parentElement;
