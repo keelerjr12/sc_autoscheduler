@@ -8,3 +8,7 @@
 .tab {
     display: none;
 }
+
+#prevBtn {
+    visibility: hidden;
+}
