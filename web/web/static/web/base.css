@@ -1,18 +1,3 @@
-main {
-    display: flex;
-    flex-wrap: nowrap;
-    height: 100%;
-    min-height: 100vh;
-}
-
-#sidebar {
-    position: fixed;
-    height: 100%;
-    width:10%;
-}
-
 #content {
     display:block;
-    margin-left: 10%;
-    width: 100%;
 }
