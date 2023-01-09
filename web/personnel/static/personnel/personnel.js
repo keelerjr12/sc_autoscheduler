@@ -1,24 +1,6 @@
 initialize_edit_listeners();
 initialize_save_listeners();
 
-initialize_row_edit_listeners();
-
-function initialize_row_edit_listeners() {
-    let edit_elms = document.getElementsByClassName('pilot_row');
-
-    Array.from(edit_elms).forEach(element => {
-    element.addEventListener('click', row_clicked);
-    });
-}
-
-function row_clicked(event) {
-    const target = event.currentTarget;
-    console.log(target);
-
-    const edit_form = document.getElementById("edit_form");
-    edit_form.classList.add('show');
-}
-
 function initialize_edit_listeners() {
     let edit_elms = document.getElementsByClassName('edit');
 

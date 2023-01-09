@@ -25,17 +25,3 @@ th.rotate > div > span {
 .save {
     display: none;
 }
-
-.hidden {
-    position: fixed;
-    top: 25%;
-    right: -25%;
-    width: 25%;
-    height: 50%;
-    background-color: white;
-}
-
-.show {
-    transform: translateX(-100%);
-    transition: transform 1s ease-in-out;
-}
