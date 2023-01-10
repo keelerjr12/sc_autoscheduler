@@ -4,7 +4,9 @@ DROP TABLE pilot_org CASCADE;
 DROP TABLE pilot_qual CASCADE;
 DROP TABLE qual CASCADE;
 DROP TABLE qual_type CASCADE;
-DROP TABLE pilot CASCADE;
+
+DROP TABLE person_line CASCADE;
+DROP TABLE person CASCADE;
 
 DROP TABLE shell_line CASCADE;
 DROP TABLE shell_duty CASCADE;
@@ -14,13 +16,19 @@ DROP TABLE duty_type CASCADE;
 
 DROP TABLE org CASCADE;
 
-CREATE TABLE IF NOT EXISTS pilot (
+CREATE TABLE IF NOT EXISTS person (
+    id              SERIAL PRIMARY KEY,
+    tims_id         int NOT NULL,
+    last_name       VARCHAR,
+    first_name      VARCHAR,
+    middle_name     VARCHAR
+);
+
+CREATE TABLE IF NOT EXISTS person_line (
     id              SERIAL PRIMARY KEY,
     auth_group_id   INT REFERENCES auth_group(id) NOT NULL,
-    tims_id         INT,
-    last_name       VARCHAR NOT NULL,
-    first_name      VARCHAR NOT NULL,
-    ausm_tier       INT NOT NULL
+    person_id       INT REFERENCES person(id) NOT NULL,
+    ausm_tier       INT NOT NULL DEFAULT 4
 );
 
 CREATE TABLE IF NOT EXISTS qual_type (
@@ -35,9 +43,9 @@ CREATE TABLE IF NOT EXISTS qual (
 );
 
 CREATE TABLE IF NOT EXISTS pilot_qual (
-    pilot_id        INT REFERENCES pilot(id) NOT NULL,
+    person_id        INT REFERENCES person_line(id) NOT NULL,
     qual_id         INT REFERENCES qual(id) NOT NULL,
-    PRIMARY KEY     (pilot_id, qual_id)
+    PRIMARY KEY     (person_id, qual_id)
 );
 
 CREATE TABLE IF NOT EXISTS org (
@@ -46,9 +54,9 @@ CREATE TABLE IF NOT EXISTS org (
 );
 
 CREATE TABLE IF NOT EXISTS pilot_org (
-    pilot_id        INT REFERENCES pilot(id) NOT NULL,
+    person_id        INT REFERENCES person_line(id) NOT NULL,
     org_id          INT REFERENCES org(id) NOT NULL,
-    PRIMARY KEY     (pilot_id, org_id)
+    PRIMARY KEY     (person_id, org_id)
 );
 
 CREATE TABLE IF NOT EXISTS shell_line (
@@ -83,7 +91,7 @@ CREATE TABLE IF NOT EXISTS shell_duty (
 
 CREATE TABLE IF NOT EXISTS absence_request (
     id                      SERIAL PRIMARY KEY,
-    person_id               INT REFERENCES pilot(id) NOT NULL,
+    person_id               INT REFERENCES person(id) NOT NULL,
     reason                  VARCHAR(1024),
     start_date_time         TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     end_date_time           TIMESTAMP WITHOUT TIME ZONE NOT NULL,
@@ -93,14 +101,21 @@ CREATE TABLE IF NOT EXISTS absence_request (
 );
 
 CREATE TEMPORARY TABLE tmp_person (
-    auth_group_id INT NOT NULL, 
-    last_name VARCHAR NOT NULL,
-    first_name VARCHAR NOT NULL,
     prsn_id INT PRIMARY KEY,
-    grade VARCHAR NOT NULL,
-    qual_code VARCHAR NOT NULL,
-    nation VARCHAR NOT NULL,
-    unit VARCHAR NOT NULL,
+    last_name VARCHAR,
+    first_name VARCHAR,
+    middle_name VARCHAR
+);
+
+CREATE TEMPORARY TABLE tmp_lox_person (
+    auth_group_id INT,
+    last_name VARCHAR,
+    first_name VARCHAR,
+    prsn_id INT PRIMARY KEY,
+    grade VARCHAR,
+    qual_code VARCHAR,
+    nation VARCHAR,
+    unit VARCHAR,
     ip_date VARCHAR,
     bip VARCHAR,
     exp_inexp VARCHAR,
@@ -127,9 +142,16 @@ CREATE TEMPORARY TABLE tmp_person (
     assigned_org VARCHAR
 );
 
-\COPY tmp_person FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/lox.csv' delimiter ',' CSV HEADER; 
+\COPY tmp_person FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/personnel.csv' delimiter ',' CSV HEADER; 
+INSERT INTO person (tims_id, last_name, first_name, middle_name) SELECT prsn_id, last_name, first_name, middle_name FROM tmp_person;
 
-INSERT INTO pilot (auth_group_id, tims_id, last_name, first_name, ausm_tier) SELECT auth_group_id, prsn_id, last_name, first_name, ausm_tier FROM tmp_person;
+\COPY tmp_lox_person FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/lox.csv' delimiter ',' CSV HEADER; 
+
+INSERT INTO person_line (auth_group_id, person_id, ausm_tier) 
+    SELECT auth_group_id, person.id, ausm_tier 
+    FROM tmp_lox_person
+    JOIN person
+    ON   person.tims_id = prsn_id;
 
 INSERT INTO qual_type (name) VALUES ('Duty'), ('Flight');
 INSERT INTO qual (type_id, name) 
@@ -145,108 +167,128 @@ VALUES
     (2, 'SEFE');
 
 INSERT INTO pilot_qual
-    SELECT  pilot.id, qual.id
-    FROM    tmp_person
-JOIN        pilot
-ON          pilot.tims_id = tmp_person.prsn_id
-JOIN        qual
-ON          qual.name = 'Operations Supervisor'
-AND         tmp_person.ops_supervisor = 'X';
+    SELECT      person_line.id, qual.id
+    FROM        tmp_lox_person
+    JOIN        person
+    ON          person.tims_id = tmp_lox_person.prsn_id 
+    JOIN        person_line
+    ON          person_line.person_id = person.id
+    JOIN        qual
+    ON          qual.name = 'Operations Supervisor'
+    AND         tmp_lox_person.ops_supervisor = 'X';
 
 INSERT INTO pilot_qual
-    SELECT  pilot.id, qual.id
-    FROM    tmp_person
-JOIN        pilot
-ON          pilot.tims_id = tmp_person.prsn_id
-JOIN        qual
-ON          qual.name = 'SOF'
-AND         (tmp_person.sof = 'X'
-OR          tmp_person.sof = 'X*'
-OR          tmp_person.sof = 'D'
-OR          tmp_person.sof = 'D*');
+    SELECT      person_line.id, qual.id
+    FROM        tmp_lox_person
+    JOIN        person
+    ON          person.tims_id = tmp_lox_person.prsn_id 
+    JOIN        person_line
+    ON          person_line.person_id = person.id
+    JOIN        qual
+    ON          qual.name = 'SOF'
+    AND         (tmp_lox_person.sof = 'X'
+    OR          tmp_lox_person.sof = 'X*'
+    OR          tmp_lox_person.sof = 'D'
+    OR          tmp_lox_person.sof = 'D*');
 
 INSERT INTO pilot_qual
-    SELECT  pilot.id, qual.id
-    FROM    tmp_person
-JOIN        pilot
-ON          pilot.tims_id = tmp_person.prsn_id
-JOIN        qual
-ON          qual.name = 'RSU Controller'
-AND         (tmp_person.rsu_controller = 'X'
-OR          tmp_person.rsu_controller = 'X*'
-OR          tmp_person.rsu_controller = 'D'
-OR          tmp_person.rsu_controller = 'D*');
+    SELECT      person_line.id, qual.id
+    FROM        tmp_lox_person
+    JOIN        person
+    ON          person.tims_id = tmp_lox_person.prsn_id 
+    JOIN        person_line
+    ON          person_line.person_id = person.id
+    JOIN        qual
+    ON          qual.name = 'RSU Controller'
+    AND         (tmp_lox_person.rsu_controller = 'X'
+    OR          tmp_lox_person.rsu_controller = 'X*'
+    OR          tmp_lox_person.rsu_controller = 'D'
+    OR          tmp_lox_person.rsu_controller = 'D*');
 
 INSERT INTO pilot_qual
-    SELECT  pilot.id, qual.id
-    FROM    tmp_person
-JOIN        pilot
-ON          pilot.tims_id = tmp_person.prsn_id
-JOIN        qual
-ON          qual.name = 'RSU Observer'
-AND         (tmp_person.rsu_observer = 'X'
-OR          tmp_person.rsu_observer = 'X*'
-OR          tmp_person.rsu_observer = 'D'
-OR          tmp_person.rsu_observer = 'D*');
+    SELECT      person_line.id, qual.id
+    FROM        tmp_lox_person
+    JOIN        person
+    ON          person.tims_id = tmp_lox_person.prsn_id 
+    JOIN        person_line
+    ON          person_line.person_id = person.id
+    JOIN        qual
+    ON          qual.name = 'RSU Observer'
+    AND         (tmp_lox_person.rsu_observer = 'X'
+    OR          tmp_lox_person.rsu_observer = 'X*'
+    OR          tmp_lox_person.rsu_observer = 'D'
+    OR          tmp_lox_person.rsu_observer = 'D*');
 
 INSERT INTO pilot_qual
-    SELECT  pilot.id, qual.id
-    FROM    tmp_person
-JOIN        pilot
-ON          pilot.tims_id = tmp_person.prsn_id
-JOIN        qual
-ON          qual.name = 'IPC Pilot'
-AND         (tmp_person.ipc_pilot = 'X'
-OR          tmp_person.ipc_pilot = 'P'
-OR          tmp_person.ipc_pilot = 'U');
+    SELECT      person_line.id, qual.id
+    FROM        tmp_lox_person
+    JOIN        person
+    ON          person.tims_id = tmp_lox_person.prsn_id 
+    JOIN        person_line
+    ON          person_line.person_id = person.id
+    JOIN        qual
+    ON          qual.name = 'IPC Pilot'
+    AND         (tmp_lox_person.ipc_pilot = 'X'
+    OR          tmp_lox_person.ipc_pilot = 'P'
+    OR          tmp_lox_person.ipc_pilot = 'U');
 
 INSERT INTO pilot_qual
-    SELECT  pilot.id, qual.id
-    FROM    tmp_person
-JOIN        pilot
-ON          pilot.tims_id = tmp_person.prsn_id
-JOIN        qual
-ON          qual.name = 'FPC Pilot'
-AND         (tmp_person.fpc_pilot = 'X'
-OR          tmp_person.fpc_pilot = 'P'
-OR          tmp_person.fpc_pilot = 'U');
+    SELECT      person_line.id, qual.id
+    FROM        tmp_lox_person
+    JOIN        person
+    ON          person.tims_id = tmp_lox_person.prsn_id 
+    JOIN        person_line
+    ON          person_line.person_id = person.id
+    JOIN        qual
+    ON          qual.name = 'FPC Pilot'
+    AND         (tmp_lox_person.fpc_pilot = 'X'
+    OR          tmp_lox_person.fpc_pilot = 'P'
+    OR          tmp_lox_person.fpc_pilot = 'U');
 
 INSERT INTO pilot_qual
-    SELECT  pilot.id, qual.id
-    FROM    tmp_person
-JOIN        pilot
-ON          pilot.tims_id = tmp_person.prsn_id
-JOIN        qual
-ON          qual.name = 'FCF Pilot'
-AND         tmp_person.fcf_pilot = 'X';
+    SELECT      person_line.id, qual.id
+    FROM        tmp_lox_person
+    JOIN        person
+    ON          person.tims_id = tmp_lox_person.prsn_id 
+    JOIN        person_line
+    ON          person_line.person_id = person.id
+    JOIN        qual
+    ON          qual.name = 'FCF Pilot'
+    AND         tmp_lox_person.fcf_pilot = 'X';
 
 INSERT INTO pilot_qual
-    SELECT  pilot.id, qual.id
-    FROM    tmp_person
-JOIN        pilot
-ON          pilot.tims_id = tmp_person.prsn_id
-JOIN        qual
-ON          qual.name = 'PIT IP'
-AND         tmp_person.pit_ip = 'X';
+    SELECT      person_line.id, qual.id
+    FROM        tmp_lox_person
+    JOIN        person
+    ON          person.tims_id = tmp_lox_person.prsn_id 
+    JOIN        person_line
+    ON          person_line.person_id = person.id
+    JOIN        qual
+    ON          qual.name = 'PIT IP'
+    AND         tmp_lox_person.pit_ip = 'X';
 
 INSERT INTO pilot_qual
-    SELECT  pilot.id, qual.id
-    FROM    tmp_person
-JOIN        pilot
-ON          pilot.tims_id = tmp_person.prsn_id
-JOIN        qual
-ON          qual.name = 'SEFE'
-AND         tmp_person.sefe = 'X';
+    SELECT      person_line.id, qual.id
+    FROM        tmp_lox_person
+    JOIN        person
+    ON          person.tims_id = tmp_lox_person.prsn_id 
+    JOIN        person_line
+    ON          person_line.person_id = person.id
+    JOIN        qual
+    ON          qual.name = 'SEFE'
+    AND         tmp_lox_person.sefe = 'X';
 
 INSERT INTO org (name) VALUES ('M'), ('N'), ('O'), ('P'), ('X');
 
 INSERT INTO pilot_org 
-    SELECT  pilot.id, org.id
-    FROM    tmp_person
-JOIN        pilot
-ON          pilot.tims_id = tmp_person.prsn_id
-JOIN        org
-ON          org.name = tmp_person.assigned_org;
+    SELECT      person_line.id, org.id
+    FROM        tmp_lox_person
+    JOIN        person
+    ON          person.tims_id = tmp_lox_person.prsn_id
+    JOIN        person_line
+    ON          person_line.person_id = person.id
+    JOIN        org
+    ON          org.name = tmp_lox_person.assigned_org;
 
 CREATE TEMPORARY TABLE tmp_line (
     auth_group_id   INT NOT NULL, 
@@ -324,7 +366,7 @@ CREATE TEMPORARY TABLE tmp_absence_request (
 
 INSERT INTO absence_request (person_id, reason, start_date_time, end_date_time, occur_start_date_time, occur_end_date_time, day_of_week_ptn)
     SELECT 
-        pilot.id,
+        person.id,
         tmp_absence_request.resn_tx,
         tmp_absence_request.start_date_time_dt,
         tmp_absence_request.end_date_time_dt,
@@ -332,5 +374,5 @@ INSERT INTO absence_request (person_id, reason, start_date_time, end_date_time, 
         tmp_absence_request.recur_end_date_time_dt,
         CAST(NULLIF(tmp_absence_request.patt_day_of_week_in, '') AS INT)
     FROM tmp_absence_request 
-    JOIN pilot 
-    ON pilot.tims_id = tmp_absence_request.prsn_id;
+    JOIN person 
+    ON person.id = tmp_absence_request.prsn_id;

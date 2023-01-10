@@ -10,7 +10,7 @@ function initialize_edit_listeners() {
 }
 
 function initialize_save_listeners() {
-    let save_elms = document.getElementsByClassName('save');
+    let save_elms = document.getElementsByClassName('save'); // TODO: issue here!
 
     Array.from(save_elms).forEach(element => {
     element.addEventListener('click', save_clicked);
@@ -43,20 +43,35 @@ function map_values(val) {
         'sof': 'SOF',
         'rsu_controller': 'RSU Controller',
         'rsu_observer': 'RSU Observer',
-        'pit_ip': 'PIT IP'
+        'pit_ip': 'PIT IP',
+        'ipc_pilot': 'IPC Pilot',
+        'fpc_pilot': 'FPC Pilot',
+        'fcf_pilot': 'FCF Pilot',
+        'pit_ip': 'PIT IP',
+        'sefe': 'SEFE'
     };
 
     return mapped_vals[val]
 }
 
 function save_clicked(event) {
-    let row = event.target.parentElement.parentElement.parentElement;
+    console.log(event.currentTarget);
+    let row = event.currentTarget.parentElement.parentElement.parentElement;
     const id = row.id;
 
     data = {};
     data['pilot_id'] = id;
 
-    const cells = row.getElementsByClassName('cell');
+    const org_cell = row.getElementsByClassName('org')[0];
+    const org_sel = org_cell.getElementsByTagName('select')[0];
+    const org_select_opt = org_sel.options[org_sel.selectedIndex].text;
+    
+    const val = org_cell.getElementsByClassName('value')[0];
+    val.textContent = org_select_opt;
+
+    data['org'] = val.textContent;
+
+    const cells = row.getElementsByClassName('qual');
     quals = {};
     Array.from(cells).forEach(cell => {
         const sel = cell.getElementsByTagName('select')[0];
@@ -85,6 +100,7 @@ function save_clicked(event) {
 }
 
 function send_data(data) {
+    console.log(data);
     const httpRequest = new XMLHttpRequest();
     httpRequest.onreadystatechange = () => {
         if (httpRequest.readyState === XMLHttpRequest.DONE) {

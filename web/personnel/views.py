@@ -3,9 +3,9 @@ from django.http.request import HttpRequest
 from django.http.response import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-from .models import Pilot, PilotQualification, Qualification
+from .models import PersonLine, PilotOrganization, PilotQualification, Qualification
 
-def map_to_viewmodel(p: Pilot):
+def map_to_viewmodel(p: PersonLine):
     quals = {}
     org = ''
     
@@ -17,7 +17,7 @@ def map_to_viewmodel(p: Pilot):
 
     pilot = {
         'id': p.id,
-        'name': f'%s, %s' % (p.last_name, p.first_name),
+        'name': f'%s, %s' % (p.person.last_name, p.person.first_name),
         'assigned_org': org,
         'quals': {
             'ops_supervisor': 'X' if 'Operations Supervisor' in quals.keys() else '',
@@ -36,7 +36,7 @@ def map_to_viewmodel(p: Pilot):
 
 @login_required
 def index(request):
-    pilot_rs = Pilot.objects.filter(auth_group__name__in=request.user.groups.values_list('name', flat=True)).prefetch_related('quals', 'org')
+    pilot_rs = PersonLine.objects.filter(auth_group__name__in=request.user.groups.values_list('name', flat=True)).order_by('person__last_name', 'person__first_name').prefetch_related('person', 'quals', 'org')
     pilots = [map_to_viewmodel(p) for p in pilot_rs]
     flight_orgs = ['', 'M', 'N', 'O', 'P', 'X']
     quals = ['', 'X']
@@ -50,6 +50,13 @@ def person(request: HttpRequest, id: int):
 
     if request.method == 'POST':
         data = json.loads(request.body)
+
+        print(data)
+        assigned_org = data['org']
+        if (assigned_org == ""):
+            PilotOrganization.objects.filter(person_id=data['pilot_id']).delete()
+        else:
+            PilotOrganization.objects.create(person_id=data['pilot_id'], org_id=1)
         
         quals_to_add = []
         quals_to_remove = []
@@ -60,9 +67,9 @@ def person(request: HttpRequest, id: int):
             else:
                 quals_to_add.append(qual)
 
-        pilot_quals  = [PilotQualification(pilot_id=data['pilot_id'], qual_id=qual.id) for qual in Qualification.objects.filter(name__in=quals_to_add)]
+        pilot_quals  = [PilotQualification(person_id=data['pilot_id'], qual_id=qual.id) for qual in Qualification.objects.filter(name__in=quals_to_add)]
         PilotQualification.objects.bulk_create(pilot_quals, ignore_conflicts=True)
 
-        PilotQualification.objects.filter(pilot_id=data['pilot_id'], qual__name__in=quals_to_remove).delete()
+        PilotQualification.objects.filter(person_id=data['pilot_id'], qual__name__in=quals_to_remove).delete()
 
     return HttpResponse("Success")
