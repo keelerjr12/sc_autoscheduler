@@ -13,15 +13,3 @@ th.rotate > div {
 th.rotate > div > span {
     padding: 5px 10px;
 }
-
-.cell > span {
-    visibility: visible;
-}
-
-.cell > select {
-    display: none;
-}
-
-.save {
-    display: none;
-}

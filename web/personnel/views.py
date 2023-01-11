@@ -52,11 +52,13 @@ def person(request: HttpRequest, id: int):
         data = json.loads(request.body)
 
         print(data)
+        person_id = data['person_id']
         assigned_org = data['org']
-        if (assigned_org == ""):
-            PilotOrganization.objects.filter(person_id=data['pilot_id']).delete()
-        else:
-            PilotOrganization.objects.create(person_id=data['pilot_id'], org_id=1)
+
+       # if (assigned_org == ""):
+       #     PilotOrganization.objects.filter(person_id=person_id).delete()
+       # else:
+       #     PilotOrganization.objects.get_or_create(person_id=person_id, org_id=1)
         
         quals_to_add = []
         quals_to_remove = []
@@ -67,9 +69,11 @@ def person(request: HttpRequest, id: int):
             else:
                 quals_to_add.append(qual)
 
-        pilot_quals  = [PilotQualification(person_id=data['pilot_id'], qual_id=qual.id) for qual in Qualification.objects.filter(name__in=quals_to_add)]
+        pilot_quals = [PilotQualification(person_id=person_id, qual_id=qual.id) for qual in Qualification.objects.filter(name__in=quals_to_add)]
         PilotQualification.objects.bulk_create(pilot_quals, ignore_conflicts=True)
 
-        PilotQualification.objects.filter(person_id=data['pilot_id'], qual__name__in=quals_to_remove).delete()
+        for qual in quals_to_remove:
+            PersonLine.objects.get(id=person_id).quals.remove(qual)
+
 
     return HttpResponse("Success")
