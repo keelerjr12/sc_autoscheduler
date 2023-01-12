@@ -5,10 +5,13 @@ from django.http import HttpResponse, Http404
 from django.shortcuts import render, redirect
 import os
 import subprocess
-from schedule.models import Line, ShellDuty
+from schedule.models import Line, Schedule, ShellDuty
 
 @login_required
 def index(request):
+
+    for a in Schedule.objects.all():
+        print(a.name)
 
     schedule_path = os.path.join(settings.MEDIA_ROOT, 'schedules')
     schedules = os.listdir(schedule_path)    

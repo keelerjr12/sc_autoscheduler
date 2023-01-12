@@ -16,6 +16,8 @@ DROP TABLE duty_type CASCADE;
 
 DROP TABLE org CASCADE;
 
+DROP TABLE schedule CASCADE;
+
 CREATE TABLE IF NOT EXISTS person (
     id              SERIAL PRIMARY KEY,
     tims_id         int NOT NULL,
@@ -98,6 +100,15 @@ CREATE TABLE IF NOT EXISTS absence_request (
     occur_start_date_time   TIMESTAMP WITHOUT TIME ZONE,
     occur_end_date_time     TIMESTAMP WITHOUT TIME ZONE,
     day_of_week_ptn         INT
+);
+
+CREATE TABLE IF NOT EXISTS schedule (
+    id                      SERIAL PRIMARY KEY,
+    name                    VARCHAR NOT NULL, 
+    start_date              DATE,
+    end_date                DATE,
+    submission_date_time    TIMESTAMP WITHOUT TIME ZONE,
+    status                  VARCHAR NOT NULL
 );
 
 CREATE TEMPORARY TABLE tmp_person (
@@ -376,3 +387,9 @@ INSERT INTO absence_request (person_id, reason, start_date_time, end_date_time, 
     FROM tmp_absence_request 
     JOIN person 
     ON person.id = tmp_absence_request.prsn_id;
+
+INSERT INTO schedule (name, start_date, end_date, submission_date_time, status)
+VALUES ('Test_Schedule', '2023-01-02', '2023-01-05', now(), 'Completed');
+
+INSERT INTO schedule (name, start_date, end_date, submission_date_time, status)
+VALUES ('Test_Schedule_v2', '2023-01-09', '2023-01-12', now(), 'Completed');

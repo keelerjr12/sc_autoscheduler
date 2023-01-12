@@ -1,108 +1,61 @@
-initialize_edit_listeners();
-initialize_save_listeners();
+add_listeners('.edit-btn', edit_clicked);
+add_listeners('.save-btn', save_clicked);
 
-initialize_row_edit_listeners();
-
-function initialize_row_edit_listeners() {
-    let edit_elms = document.getElementsByClassName('pilot_row');
-
-    Array.from(edit_elms).forEach(element => {
-    element.addEventListener('click', row_clicked);
-    });
+function add_listeners(element, fn) {
+    document.querySelectorAll(element).forEach(el => el.addEventListener('click', fn));
 }
 
-function row_clicked(event) {
-    const target = event.currentTarget;
-    console.log(target);
-
-    const edit_form = document.getElementById("edit_form");
-    edit_form.classList.add('show');
-}
-
-function initialize_edit_listeners() {
-    let edit_elms = document.getElementsByClassName('edit');
-
-    Array.from(edit_elms).forEach(element => {
-    element.addEventListener('click', edit_clicked);
-    });
-}
-
-function initialize_save_listeners() {
-    let save_elms = document.getElementsByClassName('save');
-
-    Array.from(save_elms).forEach(element => {
-    element.addEventListener('click', save_clicked);
-    });
-}
-
-function toggle_vis(row, className, display_opt) {
-    let elements = row.getElementsByClassName(className);
-    Array.from(elements).forEach(el => {
-        el.style.display = display_opt;
-    });
+function get_row(target) {
+    const row = target.parentElement.parentElement.parentElement;
+    return row;
 }
 
 function edit_clicked(event) {
-    let edit_delete = event.currentTarget.parentElement;
-    edit_delete.style.display = 'none';
+    const row = get_row(event.currentTarget);
 
-    let cell = edit_delete.parentElement;
-    let save = cell.getElementsByClassName('save')[0];
-    save.style.display = 'block';
+    row.querySelector('.edit_delete').classList.toggle('d-none');
+    row.querySelector('.save').classList.toggle('d-none');
 
-    const row = cell.parentElement;
-    toggle_vis(row, 'value', 'none');
-    toggle_vis(row, 'options', 'block');
-}
-
-function map_values(val) {
-    mapped_vals = {
-        'ops_supervisor': 'Operations Supervisor',
-        'sof': 'SOF',
-        'rsu_controller': 'RSU Controller',
-        'rsu_observer': 'RSU Observer',
-        'pit_ip': 'PIT IP'
-    };
-
-    return mapped_vals[val]
+    row.querySelectorAll('.value').forEach(val => val.classList.toggle('d-none'));
+    row.querySelectorAll('.options').forEach(val => val.classList.toggle('d-none'));
 }
 
 function save_clicked(event) {
-    let row = event.target.parentElement.parentElement.parentElement;
-    const id = row.id;
+    const row = get_row(event.currentTarget)
 
-    data = {};
-    data['pilot_id'] = id;
+    row.querySelectorAll('select').forEach(sel => sel.classList.toggle('d-none'));
+    row.querySelectorAll('.value').forEach(val => val.classList.toggle('d-none'));
 
-    const cells = row.getElementsByClassName('cell');
-    quals = {};
-    Array.from(cells).forEach(cell => {
-        const sel = cell.getElementsByTagName('select')[0];
-        const select_id = sel.id;
-        let select_opt = sel.options[sel.selectedIndex].text;
-        
-        const val = cell.getElementsByClassName('value')[0];
-        val.textContent = select_opt;
+    row.querySelector('.save').classList.toggle('d-none');
+    row.querySelector('.edit_delete').classList.toggle('d-none');
 
-        quals[map_values(select_id)] = select_opt;
+    row.querySelectorAll('.cell').forEach(cell => {
+        const value = cell.querySelector('.value');
+        const select = cell.querySelector('select');
+
+        value.textContent = select.options[select.selectedIndex].text;
     });
 
-    data['quals'] = quals;
+    const person_id = row.id;
+    const assigned_org = row.querySelector('.org .value').textContent;
+    
+    let qual_names = [];
+    document.querySelectorAll('.qual_header').forEach(qual => qual_names.push(qual.textContent));
 
-    let save = event.target.parentElement;
-    save.style.display = 'none';
+    let quals = {};
+    row.querySelectorAll('.qual .value').forEach((qual, index) => quals[qual_names[index]] = qual.textContent);
 
-    let cell = save.parentElement;
-    let edit_delete = cell.getElementsByClassName('edit_delete')[0];
-    edit_delete.style.display = 'block';
-
-    toggle_vis(row, 'value', 'block');
-    toggle_vis(row, 'options', 'none');
+    data = {
+        "person_id": person_id,
+        "org": assigned_org,
+        "quals": quals
+    };
 
     send_data(data);
 }
 
 function send_data(data) {
+    console.log(data);
     const httpRequest = new XMLHttpRequest();
     httpRequest.onreadystatechange = () => {
         if (httpRequest.readyState === XMLHttpRequest.DONE) {
@@ -112,7 +65,7 @@ function send_data(data) {
         }
     };
 
-    httpRequest.open('POST', '/personnel/' + data.pilot_id);
+    httpRequest.open('POST', '/personnel/' + data.person_id);
     httpRequest.setRequestHeader('Content-Type', 'application/json');
 
     const csrfToken = Cookies.get('csrftoken');

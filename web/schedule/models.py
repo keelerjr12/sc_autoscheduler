@@ -56,3 +56,20 @@ class ShellDuty(models.Model):
     class Meta:
         managed = False
         db_table = 'shell_duty'
+
+class Schedule(models.Model):
+    id = models.IntegerField(primary_key=True)
+
+    name = models.CharField(max_length=128)
+
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+
+    submission_date_time = models.DateTimeField()
+
+    status = models.CharField(max_length=32)
+
+
+    class Meta:
+        managed = False
+        db_table = 'schedule'

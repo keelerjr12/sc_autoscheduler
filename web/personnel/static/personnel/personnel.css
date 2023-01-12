@@ -1,15 +1,9 @@
 th.rotate {
-    height: 12em;
-    width: 30px;
-    white-space: nowrap;
+    max-width: 1.5em;
+    min-width: 1.5em;
+    writing-mode: vertical-rl;
 }
 
-th.rotate > div {
-    transform: 
-        rotate(-90deg);
-    width: 30px;
-}
-
-th.rotate > div > span {
-    padding: 5px 10px;
+.qual {
+    max-width: 1.5em;
 }

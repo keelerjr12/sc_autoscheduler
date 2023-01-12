@@ -3,7 +3,8 @@ from django.http.request import HttpRequest
 from django.http.response import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-from .models import PersonLine, PilotOrganization, PilotQualification, Qualification
+from django.db import connection
+from .models import Organization, PersonLine, PilotOrganization, PilotQualification, Qualification
 
 def map_to_viewmodel(p: PersonLine):
     quals = {}
@@ -51,14 +52,21 @@ def person(request: HttpRequest, id: int):
     if request.method == 'POST':
         data = json.loads(request.body)
 
-        print(data)
         person_id = data['person_id']
         assigned_org = data['org']
 
-       # if (assigned_org == ""):
-       #     PilotOrganization.objects.filter(person_id=person_id).delete()
-       # else:
-       #     PilotOrganization.objects.get_or_create(person_id=person_id, org_id=1)
+        if (assigned_org == ""):
+            PilotOrganization.objects.filter(person_id=person_id).delete()
+        else:
+            person = PersonLine.objects.get(id=person_id)
+            org = Organization.objects.get(name=assigned_org)
+
+            defaults = {
+                'person_id': person.id,
+                'org_id': org.id
+            }
+
+            PilotOrganization.objects.update_or_create(defaults=defaults, person=person)
         
         quals_to_add = []
         quals_to_remove = []
@@ -72,8 +80,13 @@ def person(request: HttpRequest, id: int):
         pilot_quals = [PilotQualification(person_id=person_id, qual_id=qual.id) for qual in Qualification.objects.filter(name__in=quals_to_add)]
         PilotQualification.objects.bulk_create(pilot_quals, ignore_conflicts=True)
 
-        for qual in quals_to_remove:
-            PersonLine.objects.get(id=person_id).quals.remove(qual)
-
+        # this is needed due to Django being unable to handle composite primary keys
+        # and only deleting by the primary key
+        if len(quals_to_remove) > 0:
+            with connection.cursor() as cursor:
+                stmt = "DELETE FROM pilot_qual USING qual WHERE qual.id = pilot_qual.qual_id AND pilot_qual.person_id = %s AND qual.name IN (%s)" % ('%s', ','.join('%s' for i in quals_to_remove))
+                params = quals_to_remove
+                params.insert(0, person_id)
+                cursor.execute(stmt, params)
 
     return HttpResponse("Success")
