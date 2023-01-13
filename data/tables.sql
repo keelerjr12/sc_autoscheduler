@@ -393,3 +393,6 @@ VALUES ('Test_Schedule', '2023-01-02', '2023-01-05', now(), 'Completed');
 
 INSERT INTO schedule (name, start_date, end_date, submission_date_time, status)
 VALUES ('Test_Schedule_v2', '2023-01-09', '2023-01-12', now(), 'Completed');
+
+INSERT INTO schedule (name, start_date, end_date, submission_date_time, status)
+VALUES ('Test_Schedule_v3', '2023-01-09', '2023-01-12', now(), 'Pending');

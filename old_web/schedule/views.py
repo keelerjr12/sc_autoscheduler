@@ -1,20 +1,45 @@
 from datetime import datetime, time, timedelta
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
+from django.core.paginator import Paginator
 from django.http import HttpResponse, Http404
 from django.shortcuts import render, redirect
 import os
 import subprocess
 from schedule.models import Line, Schedule, ShellDuty
+from .forms import ScheduleBuildForm
+
+def get_icon_str_for_status(status: str) -> str:
+    if (status == 'Completed'):
+        return 'text-bg-success'
+    elif (status == 'Pending'):
+        return 'text-bg-info'
+
+    return ''
+
+def map_schedule_dto_vm(schedule: Schedule):
+    schedule_vm = {}
+
+    schedule_vm['name'] = schedule.name
+    schedule_vm['start_date'] = schedule.start_date
+    schedule_vm['end_date'] = schedule.end_date
+    schedule_vm['submission_date_time'] = schedule.submission_date_time
+    schedule_vm['status'] = schedule.status
+    schedule_vm['icon'] = get_icon_str_for_status(schedule.status)
+
+    return schedule_vm
 
 @login_required
 def index(request):
 
-    for a in Schedule.objects.all():
-        print(a.name)
+    schedules = [map_schedule_dto_vm(schedule_dto) for schedule_dto in Schedule.objects.all()]
+    paginator = Paginator(schedules, per_page=2)
 
-    schedule_path = os.path.join(settings.MEDIA_ROOT, 'schedules')
-    schedules = os.listdir(schedule_path)    
+    page = request.GET.get('page')
+    if page == None:
+        page = paginator.num_pages
+
+    page_obj = paginator.get_page(page)
 
     duties = ShellDuty.objects.select_related('duty')
     shell_duties = {}
@@ -39,7 +64,7 @@ def index(request):
 
         shell[start_date].append(line)
 
-    context = {'schedules': schedules, 'shell': shell, 'shell_duties': shell_duties }
+    context = {'page_obj': page_obj, 'schedules': schedules, 'shell': shell, 'shell_duties': shell_duties }
 
     return render(request, 'schedule/index.html', context)
 
@@ -59,6 +84,15 @@ def download(request):
 
 @login_required
 def build(request):
-    subprocess.Popen(['python', 'autoscheduler/main.py'])
+    print('--------------------------------')
+    print(request.POST)
+
+    if request.POST:
+        print('Populate form')
+        form = ScheduleBuildForm(request.POST)
+        print(form.scheduleName)
+
+
+    #subprocess.Popen(['python', 'autoscheduler/main.py'])
 
     return redirect('index')
