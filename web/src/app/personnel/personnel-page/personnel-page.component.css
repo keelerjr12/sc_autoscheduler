@@ -1,0 +1,9 @@
+th.rotate {
+    max-width: 1.5em;
+    min-width: 1.5em;
+    writing-mode: vertical-rl;
+}
+
+.qual {
+    max-width: 1.5em;
+}
