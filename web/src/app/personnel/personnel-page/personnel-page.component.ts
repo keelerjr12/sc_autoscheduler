@@ -37,12 +37,15 @@ export class PersonnelPageComponent {
     this.qual_options = ['', 'X']
 
     this.persons = person_dtos.map(person_dto => {
-      const mapped_quals = this.quals.map(qual => {
+      const mapped_quals = new Map(this.quals.map(qual => {
+        let val = '';
+
         if (person_dto.quals.includes(qual))
-          return 'X'
-        else
-          return ''
-      });
+          val = 'X';
+
+        return [qual, val] 
+      }));
+
 
       const person_view: PersonView = {
         id: person_dto.id,
@@ -51,11 +54,13 @@ export class PersonnelPageComponent {
         quals: mapped_quals
       };
 
+      console.log(person_view.quals);
+
       return person_view;
     });
 
     this.assigned_orgs = [
-      'M', 'N', 'O', 'P', 'X'
+      ' ', 'M', 'N', 'O', 'P', 'X'
     ];
 
     this.isEditable = this.persons.map(() => {
@@ -70,5 +75,24 @@ export class PersonnelPageComponent {
   onSave(row: number) {
     this.isEditable[row] = false;
     console.log('Updating: ' + this.persons[row].name);
+    console.log(this.persons[row]);
+
+    /*console.log(data);
+    const httpRequest = new XMLHttpRequest();
+    httpRequest.onreadystatechange = () => {
+        if (httpRequest.readyState === XMLHttpRequest.DONE) {
+            if (httpRequest.status === 200) {
+                console.log("Data saved");
+            }
+        }
+    };
+
+    httpRequest.open('POST', '/personnel/' + data.person_id);
+    httpRequest.setRequestHeader('Content-Type', 'application/json');
+
+    const csrfToken = Cookies.get('csrftoken');
+    httpRequest.setRequestHeader('X-CSRFToken', csrfToken);
+
+    httpRequest.send(JSON.stringify(data));*/
   }
 }
