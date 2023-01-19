@@ -23,4 +23,5 @@ app.add_middleware(
 @app.get("/api/personnel", response_model=List[schemas.PersonLine])
 async def get_personnel(db: Session = Depends(get_db)):
     personnel = db.query(models.PersonLine).all()
+    [print(person.assigned_org) for person in personnel]
     return personnel

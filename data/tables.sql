@@ -45,9 +45,9 @@ CREATE TABLE IF NOT EXISTS qual (
 );
 
 CREATE TABLE IF NOT EXISTS pilot_qual (
-    person_id        INT REFERENCES person_line(id) NOT NULL,
+    person_line_id   INT REFERENCES person_line(id) NOT NULL,
     qual_id         INT REFERENCES qual(id) NOT NULL,
-    PRIMARY KEY     (person_id, qual_id)
+    PRIMARY KEY     (person_line_id, qual_id)
 );
 
 CREATE TABLE IF NOT EXISTS org (
@@ -56,9 +56,9 @@ CREATE TABLE IF NOT EXISTS org (
 );
 
 CREATE TABLE IF NOT EXISTS pilot_org (
-    person_id        INT REFERENCES person_line(id) NOT NULL,
+    person_line_id   INT REFERENCES person_line(id) NOT NULL,
     org_id          INT REFERENCES org(id) NOT NULL,
-    PRIMARY KEY     (person_id, org_id)
+    PRIMARY KEY     (person_line_id, org_id)
 );
 
 CREATE TABLE IF NOT EXISTS shell_line (

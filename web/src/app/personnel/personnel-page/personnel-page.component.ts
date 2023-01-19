@@ -25,33 +25,37 @@ export class PersonnelPageComponent {
     this.assigned_orgs = [
       ' ', 'M', 'N', 'O', 'P', 'X'
     ];
-    
-    this.isEditable = this.persons.map(() => {
-      return false;
-    });
   }
 
   ngOnInit() {
     this.personAPI.getPersonnel().subscribe(persons => {
       this.persons = persons.map(person_dto => {
+
         const mapped_quals = new Map(this.quals.map(qual => {
           let val = '';
 
-          if (person_dto.quals.includes(qual))
-            val = 'X';
+          person_dto.quals.forEach(dto_qual => {
+            if (dto_qual.name == qual)
+              val = 'X';
+              return;
+          });
 
           return [qual, val] 
         }));
 
         const person_view: PersonView = {
           id: person_dto.id,
-          name: person_dto.name,
-          assigned_org: person_dto.assigned_org,
+          name: person_dto.last_name + ', ' + person_dto.first_name,
+          assigned_org: person_dto.assigned_org ? person_dto.assigned_org.name : null,
           quals: mapped_quals
         };
 
         console.log(person_view.quals);
         return person_view;
+      });
+
+      this.isEditable = this.persons.map(() => {
+        return false;
       });
     });
   }

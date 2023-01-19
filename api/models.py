@@ -14,7 +14,7 @@ class Organization(Base):
 PilotOrganization = Table(
     "pilot_org",
     Base.metadata,
-    Column("person_id", ForeignKey("person_line.id"), primary_key=True),
+    Column("person_line_id", ForeignKey("person_line.id"), primary_key=True),
     Column("org_id", ForeignKey("org.id"), primary_key=True),
 )
 
@@ -37,7 +37,7 @@ class Qualification(Base):
 PilotQualification = Table(
     "pilot_qual",
     Base.metadata,
-    Column("person_id", ForeignKey("person_line.id"), primary_key=True),
+    Column("person_line_id", ForeignKey("person_line.id"), primary_key=True),
     Column("qual_id", ForeignKey("qual.id"), primary_key=True),
 )
 
@@ -58,6 +58,6 @@ class PersonLine(Person):
     person_id = Column(Integer, ForeignKey('person.id'))
     ausm_tier = Column(Integer)
     
-    assigned_org = relationship('Organization', secondary=PilotOrganization)
+    assigned_org = relationship('Organization', secondary=PilotOrganization, uselist=False)
 
     quals = relationship('Qualification', secondary=PilotQualification)
