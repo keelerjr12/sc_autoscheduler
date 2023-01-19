@@ -1,11 +1,14 @@
 import { NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
 
 import { AppRoutingModule } from './app-routing.module';
+import { BrowserModule } from '@angular/platform-browser';
+import { CoreModule } from './core/core.module';
+import { HttpClientModule } from '@angular/common/http'
+import { RouterModule } from '@angular/router';
+import { SharedModule } from './shared/shared.module';
+
 import { AppComponent } from './app.component';
 import { NavComponent } from './nav/nav.component';
-import { SharedModule } from './shared/shared.module';
-import { RouterModule } from '@angular/router';
 
 @NgModule({
   declarations: [
@@ -13,8 +16,10 @@ import { RouterModule } from '@angular/router';
     NavComponent, 
   ],
   imports: [
-    BrowserModule,
     AppRoutingModule,
+    BrowserModule,
+    CoreModule,
+    HttpClientModule,
     RouterModule,
     SharedModule
   ],
