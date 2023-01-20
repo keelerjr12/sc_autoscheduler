@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { Person } from 'src/app/core/models/person.model';
 import { PersonnelAPIService } from 'src/app/core/services/personnel-api.service';
 import { PersonView } from '../shared/personview.model';
 
@@ -8,7 +9,8 @@ import { PersonView } from '../shared/personview.model';
   styleUrls: ['./personnel-page.component.css']
 })
 export class PersonnelPageComponent {
-  persons: PersonView[] = [];
+  personViewModels: PersonView[] = [];
+  personModels: Person[] = [];
   assigned_orgs: string[];
   quals: string[];
   qual_options: string[];
@@ -29,13 +31,15 @@ export class PersonnelPageComponent {
 
   ngOnInit() {
     this.personAPI.getPersonnel().subscribe(persons => {
-      this.persons = persons.map(person_dto => {
+      this.personModels = persons;
+      console.log(this.personModels)
+      this.personViewModels = persons.map(person_dto => {
 
         const mapped_quals = new Map(this.quals.map(qual => {
           let val = '';
 
           person_dto.quals.forEach(dto_qual => {
-            if (dto_qual.name == qual)
+            if (dto_qual == qual)
               val = 'X';
               return;
           });
@@ -46,7 +50,7 @@ export class PersonnelPageComponent {
         const person_view: PersonView = {
           id: person_dto.id,
           name: person_dto.last_name + ', ' + person_dto.first_name,
-          assigned_org: person_dto.assigned_org ? person_dto.assigned_org.name : null,
+          assigned_org: person_dto.assigned_org,
           quals: mapped_quals
         };
 
@@ -54,7 +58,7 @@ export class PersonnelPageComponent {
         return person_view;
       });
 
-      this.isEditable = this.persons.map(() => {
+      this.isEditable = this.personViewModels.map(() => {
         return false;
       });
     });
@@ -66,7 +70,18 @@ export class PersonnelPageComponent {
 
   onSave(row: number) {
     this.isEditable[row] = false;
-    console.log('Updating: ' + this.persons[row].name);
-    console.log(this.persons[row]);
+
+    const personViewModel = this.personViewModels[row];
+    this.personModels[row].assigned_org = personViewModel.assigned_org;
+
+    const updatedQuals: string[] = [];
+    personViewModel.quals.forEach((key, value) => {
+      if (key === 'X')
+        updatedQuals.push(value);
+    });
+
+    this.personModels[row].quals = updatedQuals;
+
+    this.personAPI.update(this.personModels[row]).subscribe();
   }
 }

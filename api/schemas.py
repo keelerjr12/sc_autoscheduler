@@ -1,15 +1,14 @@
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
+import models
 
 class Organization(BaseModel):
-    id: int = None
     name: str = None 
     
     class Config:
         orm_mode = True
 
 class Qualification(BaseModel):
-    id: int = None
     name: str = None 
     
     class Config:
@@ -24,8 +23,19 @@ class PersonLine(BaseModel):
     
     ausm_tier: int
 
-    assigned_org: Organization | None
-    quals: List[Qualification]
+    assigned_org: str | None
+    quals: List[str]
 
     class Config:
         orm_mode = True
+
+    @validator('assigned_org', pre=True)
+    def parse_org(cls, org):
+        if hasattr(org, 'name'):
+            return org.name
+
+        return org
+
+    @validator('quals', pre=True)
+    def parse_quals(cls, quals):
+        return [qual.name if hasattr(qual, 'name') else qual for qual in quals]

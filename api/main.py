@@ -1,5 +1,4 @@
 from typing import List
-from sqlalchemy import select
 from database import Session, get_db
 import schemas, models
 
@@ -23,5 +22,10 @@ app.add_middleware(
 @app.get("/api/personnel", response_model=List[schemas.PersonLine])
 async def get_personnel(db: Session = Depends(get_db)):
     personnel = db.query(models.PersonLine).all()
-    [print(person.assigned_org) for person in personnel]
+    return personnel
+
+@app.put("/api/personnel/{id}")
+async def update_person(id: int, person: schemas.PersonLine, db: Session = Depends(get_db)):
+    #TODO: do actual database update
+    personnel = db.query(models.PersonLine).all()
     return personnel

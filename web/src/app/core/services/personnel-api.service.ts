@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { Person } from '../models/person.model';
@@ -14,5 +14,13 @@ export class PersonnelAPIService {
 
   getPersonnel() : Observable<Person[]> {
     return this.http.get<Person[]>(this.apiUrl);
+  }
+
+  update(person: Person) : Observable<any> {
+    console.log(person);
+    const httpOptions = {
+      headers: new HttpHeaders({ 'Content-Type': 'application/json' })
+    };
+    return this.http.put(this.apiUrl + '/' + person.id, person, httpOptions);
   }
 }
