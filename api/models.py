@@ -61,3 +61,15 @@ class PersonLine(Person):
     assigned_org = relationship('Organization', secondary=PilotOrganization, uselist=False)
 
     quals = relationship('Qualification', secondary=PilotQualification)
+
+class Schedule(Base):
+    __tablename__ = 'schedule'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+
+    start_date = Column(DateTime)
+    #end_date
+    #submission_date_time
+
+    status = Column(String)

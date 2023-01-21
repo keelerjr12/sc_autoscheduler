@@ -25,4 +25,7 @@ async def get_personnel(person_repo: PersonnelRepository = Depends(PersonnelRepo
 @app.put("/api/personnel/{id}")
 async def update_person(id: int, person: schemas.PersonLine, person_repo: PersonnelRepository = Depends(PersonnelRepository)):
     await person_repo.update_person(**person.dict())
-    return {} #TODO: this needs to return something with the correct status code
+    return {} #TODO: this needs to return something with the correct status codeA
+
+@app.get("/api/schedules")
+async def get_schedules(schedule_repo = Depends(ScheduleRepository)):
