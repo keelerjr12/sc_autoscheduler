@@ -1,6 +1,5 @@
-from typing import List
-from database import Session, get_db
-import schemas, models
+from repository import PersonnelRepository
+import schemas
 
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,13 +18,11 @@ app.add_middleware(
     allow_headers = ['*']
 )
 
-@app.get("/api/personnel", response_model=List[schemas.PersonLine])
-async def get_personnel(db: Session = Depends(get_db)):
-    personnel = db.query(models.PersonLine).all()
-    return personnel
+@app.get("/api/personnel", response_model=list[schemas.PersonLine])
+async def get_personnel(person_repo: PersonnelRepository = Depends(PersonnelRepository)):
+    return await person_repo.get_all_personnel()
 
 @app.put("/api/personnel/{id}")
-async def update_person(id: int, person: schemas.PersonLine, db: Session = Depends(get_db)):
-    #TODO: do actual database update
-    personnel = db.query(models.PersonLine).all()
-    return personnel
+async def update_person(id: int, person: schemas.PersonLine, person_repo: PersonnelRepository = Depends(PersonnelRepository)):
+    await person_repo.update_person(**person.dict())
+    return {} #TODO: this needs to return something with the correct status code

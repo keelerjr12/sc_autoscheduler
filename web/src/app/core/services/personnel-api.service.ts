@@ -17,7 +17,6 @@ export class PersonnelAPIService {
   }
 
   update(person: Person) : Observable<any> {
-    console.log(person);
     const httpOptions = {
       headers: new HttpHeaders({ 'Content-Type': 'application/json' })
     };

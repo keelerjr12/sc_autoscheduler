@@ -1,6 +1,5 @@
 from typing import List
 from pydantic import BaseModel, validator
-import models
 
 class Organization(BaseModel):
     name: str = None 
