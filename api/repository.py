@@ -22,6 +22,5 @@ class ScheduleRepository:
     def __init__(self, db: Session = Depends(get_db)):
         self.db = db
 
-    async def get_all_schedules(self):
-        personnel = self.db.query(models.Schedule).all()
-        return personnel
+    async def get_schedules(self):
+        return self.db.query(models.Schedule).all()

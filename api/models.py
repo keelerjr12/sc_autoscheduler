@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String 
+from sqlalchemy import Column, DateTime, Integer, String 
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import ForeignKey, Table
@@ -69,7 +69,7 @@ class Schedule(Base):
     name = Column(String)
 
     start_date = Column(DateTime)
-    #end_date
-    #submission_date_time
+    end_date = Column(DateTime)
+    submission_date_time = Column(DateTime)
 
     status = Column(String)

@@ -1,3 +1,4 @@
+import datetime
 from typing import List
 from pydantic import BaseModel, validator
 
@@ -38,3 +39,14 @@ class PersonLine(BaseModel):
     @validator('quals', pre=True)
     def parse_quals(cls, quals):
         return [qual.name if hasattr(qual, 'name') else qual for qual in quals]
+
+class Schedule(BaseModel):
+    id: int
+    name: str
+    start_date: datetime.date
+    end_date: datetime.date
+    submission_date_time: datetime.datetime
+    status: str
+    
+    class Config:
+        orm_mode = True
