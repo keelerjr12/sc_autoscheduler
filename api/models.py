@@ -73,3 +73,17 @@ class Schedule(Base):
     submission_date_time = Column(DateTime)
 
     status = Column(String)
+
+
+class ShellLine(Base):
+    __tablename__ = 'shell_line'
+
+    id = Column(Integer, primary_key=True)
+    num = Column(Integer)
+
+    start_date_time = Column(DateTime)
+
+    org_id = Column(Integer, ForeignKey('org.id'))
+    org = relationship('Organization')
+
+    fly_go = Column(Integer)

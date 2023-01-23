@@ -24,3 +24,10 @@ class ScheduleRepository:
 
     async def get_schedules(self):
         return self.db.query(models.Schedule).all()
+
+class ScheduleShellRepository:
+    def __init__(self, db: Session = Depends(get_db)):
+        self.db = db
+
+    async def get_shell(self):
+        return self.db.query(models.ShellLine).all()

@@ -2,24 +2,29 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { Person } from '../models/person.model';
+import { ConfigService } from './config.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class PersonnelAPIService {
 
-  apiUrl = 'http://localhost:8000/api/personnel'
+  ROUTE = 'personnel/';
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private config: ConfigService) { }
 
   getPersonnel() : Observable<Person[]> {
-    return this.http.get<Person[]>(this.apiUrl);
+    const url = this.config.getApiUrl() + this.ROUTE;
+    return this.http.get<Person[]>(url);
   }
 
   update(person: Person) : Observable<any> {
     const httpOptions = {
       headers: new HttpHeaders({ 'Content-Type': 'application/json' })
     };
-    return this.http.put(this.apiUrl + '/' + person.id, person, httpOptions);
+
+    const url = this.config.getApiUrl() + this.ROUTE + person.id;
+
+    return this.http.put(url, person, httpOptions);
   }
 }

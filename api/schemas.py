@@ -50,3 +50,13 @@ class Schedule(BaseModel):
     
     class Config:
         orm_mode = True
+
+class ShellLine:
+    id: int
+    num: int
+    start_date_time: datetime
+    fly_go: int
+
+class ShellDay:
+    date: datetime.date
+    lines: list[ShellLine]

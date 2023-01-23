@@ -13,7 +13,7 @@ const routes: Routes = [
     canActivate: [AuthGuardService]
   },
   {
-    path: 'schedule',
+    path: 'schedules',
     loadChildren: () => import('./schedule/schedule.module').then(m => m.ScheduleModule),
     canActivate: [AuthGuardService]
   },

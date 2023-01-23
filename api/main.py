@@ -1,4 +1,4 @@
-from repository import PersonnelRepository, ScheduleRepository
+from repository import PersonnelRepository, ScheduleRepository, ScheduleShellRepository
 import schemas
 
 from fastapi import FastAPI, Depends
@@ -30,3 +30,21 @@ async def update_person(id: int, person: schemas.PersonLine, person_repo: Person
 @app.get("/api/schedules", response_model=list[schemas.Schedule])
 async def get_schedules(schedule_repo = Depends(ScheduleRepository)):
     return await schedule_repo.get_schedules()
+
+@app.get("/api/shell")
+async def get_shell(shell_repo = Depends(ScheduleShellRepository)):
+    shell = await shell_repo.get_shell()
+    days = {}
+
+    for line in shell:
+        date = line.start_date_time.date()
+
+        if (date not in days.keys()):
+            shell_day = schemas.ShellDay()
+            shell_day.date = date
+            shell_day.lines = []
+            days[date] = shell_day
+
+        days[date].lines.append(line)
+
+    return [day for day in days.values()]
