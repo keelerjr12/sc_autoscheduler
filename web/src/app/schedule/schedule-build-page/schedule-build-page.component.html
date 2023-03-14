@@ -1,0 +1,119 @@
+<h1>Build a Schedule</h1>
+
+<div class="col justify-content-center">
+
+    <div class="main col">
+
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-xl-2">
+                    <ul class="list-group">
+                        <li class="list-group-item menu-list-item" [ngClass] = "currentTab === 0 ? 'active' : ''">Start</li>
+                        <li class="list-group-item menu-list-item" [ngClass] = "currentTab === 1 ? 'active' : ''">Flying Shell</li>
+                        <li class="list-group-item menu-list-item" [ngClass] = "currentTab === 2 ? 'active' : ''">Duty Shell</li>
+                        <li class="list-group-item menu-list-item" [ngClass] = "currentTab === 3 ? 'active' : ''">Build</li>
+                    </ul>
+                    <div>
+                        <button type="button" id="prevBtn" class="btn btn-outline-secondary" (click)="prevNext(-1)">Previous</button>
+                        <button type="button" id="nextBtn" class="btn btn-outline-secondary" (click)="prevNext(1)">Next</button>
+                    </div>
+                </div>
+                <div class="col-xl-10">
+                    <div [ngClass] = "currentTab === 0 ? 'd-block' : 'd-none'">
+                        <div>
+                            <label for="startDate" class="form-label">Start date</label>
+                            <input type="date" id="startDate" class="form-control"/>
+                            <label for="endDate" class="form-label">End date</label>
+                            <input type="date" id="endDate" class="form-control"/>
+                        </div>
+                    </div>
+                    <div [ngClass] = "currentTab === 1 ? 'd-block' : 'd-none'">
+                        <table class="table">
+                            <thead>
+                            <!--{% for date in shell %}
+                                <th>{{ date }}</th>
+                            {% endfor %} -->
+                            
+                                <th>Test</th>
+                            </thead>
+                            <tbody>
+                                <tr>
+                            <!---    {% for date in shell %}
+                                    <td>
+                                        <table class="table table-hover">
+                                            <thead></thead>
+                                            <tbody>
+                                                {% for line in shell|lookup:date %}
+                                                <tr>
+                                                    <td>{{ line.num }}</td>
+                                                    <td>{{ line.start_date_time|date:"Hi" }}</td>
+                                                    <td>{{ line.org.name }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>-->
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div [ngClass] = "currentTab === 1 ? 'd-block' : 'd-none'">
+                        <table class="table">
+                            <thead>
+                                <th>Test</th>
+                            </thead>
+                            <tbody>
+                                <tr><!---
+                                {% for date in shell_duties %}
+                                    <td>
+                                        <table class="table table-hover">
+                                            <thead></thead>
+                                            <tbody>
+                                                {% for shell_duty in shell_duties|lookup:date %}
+                                                <tr>
+                                                    <td>{{ shell_duty.duty.name }}</td>
+                                                    <td>{{ shell_duty.start_date_time|date:"Hi" }}</td>
+                                                    <td>{{ shell_duty.end_date_time|date:"Hi" }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>-->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div [ngClass] = "currentTab === 3 ? 'd-block' : 'd-none'">
+                        <form method="post" action="/build">
+                            <label for="scheduleName" class="form-label">Schedule name</label>
+                            <input type="text" id="scheduleName" name="scheduleName" class="form-control" />
+                            <table class="table">
+                                <thead>
+                                    <th>Objective</th>
+                                    <th>Weighting</th>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Lines Filled</td>
+                                        <td><input type="number" id="linesFilledWeight" class="form-control" min="0" max="100" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Assigned Organization</td>
+                                        <td><input type="number" id="assignedOrgWeight" class="form-control" min="0" max="100" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td>AUSM Adherence</td>
+                                        <td><input type="number" id="ausmWeight" class="form-control" min="0" max="100" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Duty Equality</td>
+                                        <td><input type="number" id="dutyEqualityWeight" class="form-control" min="0" max="100" /></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <button type="submit" id="buildBtn" class="btn btn-primary">Build</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
