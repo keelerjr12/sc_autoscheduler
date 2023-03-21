@@ -6,6 +6,8 @@ import { SchedulePageComponent } from './schedule-page/schedule-page.component';
 import { ScheduleListPageComponent } from './schedule-list-page/schedule-list-page.component';
 import { ScheduleBuildPageComponent } from './schedule-build-page/schedule-build-page.component';
 
+import { TableModule } from 'primeng/table'
+import { FormsModule } from '@angular/forms';
 
 @NgModule({
   declarations: [
@@ -15,7 +17,9 @@ import { ScheduleBuildPageComponent } from './schedule-build-page/schedule-build
   ],
   imports: [
     CommonModule,
-    ScheduleRoutingModule
+    FormsModule,
+    ScheduleRoutingModule,
+    TableModule
   ]
 })
 export class ScheduleModule { }

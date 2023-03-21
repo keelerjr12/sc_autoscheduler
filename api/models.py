@@ -87,3 +87,31 @@ class ShellLine(Base):
     org = relationship('Organization')
 
     fly_go = Column(Integer)
+
+class DutyType(Base):
+    __tablename__ = 'duty_type'
+
+    id = Column(Integer, primary_key=True)
+
+    name = Column(String)
+
+class Duty(Base):
+    __tablename__ = 'duty'
+
+    id = Column(Integer, primary_key=True)
+
+    duty_type_id = Column(Integer, ForeignKey('duty_type.id'))
+    duty_type = relationship('DutyType')
+
+    name = Column(String)
+
+class ShellDuty(Base):
+    __tablename__ = 'shell_duty'
+
+    id = Column(Integer, primary_key=True)
+
+    duty_id = Column(Integer, ForeignKey('duty.id'))
+    duty = relationship('Duty')
+
+    start_date_time = Column(DateTime)
+    end_date_time = Column(DateTime)

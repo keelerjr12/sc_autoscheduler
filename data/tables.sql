@@ -18,6 +18,13 @@ DROP TABLE org CASCADE;
 
 DROP TABLE schedule CASCADE;
 
+DROP TABLE auth_group CASCADE;
+
+CREATE TABLE IF NOT EXISTS auth_group (
+    id              SERIAL PRIMARY KEY,
+    name            VARCHAR
+);
+
 CREATE TABLE IF NOT EXISTS person (
     id              SERIAL PRIMARY KEY,
     tims_id         int NOT NULL,
@@ -153,10 +160,12 @@ CREATE TEMPORARY TABLE tmp_lox_person (
     assigned_org VARCHAR
 );
 
-\COPY tmp_person FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/personnel.csv' delimiter ',' CSV HEADER; 
+INSERT INTO auth_group (name) VALUES ('469fts');
+
+\COPY tmp_person FROM 'C:\Users\ADMIN\Documents\source\sparkcell-autoscheduler\autoscheduler\res\personnel.csv' delimiter ',' CSV HEADER; 
 INSERT INTO person (tims_id, last_name, first_name, middle_name) SELECT prsn_id, last_name, first_name, middle_name FROM tmp_person;
 
-\COPY tmp_lox_person FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/lox.csv' delimiter ',' CSV HEADER; 
+\COPY tmp_lox_person FROM 'C:\Users\ADMIN\Documents\source\sparkcell-autoscheduler\autoscheduler\res\lox.csv' delimiter ',' CSV HEADER; 
 
 INSERT INTO person_line (auth_group_id, person_id, ausm_tier) 
     SELECT auth_group_id, person.id, ausm_tier 
@@ -310,7 +319,7 @@ CREATE TEMPORARY TABLE tmp_line (
     fly_go          INT NOT NULL 
 );
 
-\COPY tmp_line FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/flying_schedule.csv' delimiter ',' CSV HEADER; 
+\COPY tmp_line FROM 'C:\Users\ADMIN\Documents\source\sparkcell-autoscheduler\autoscheduler\res\flying_schedule.csv' delimiter ',' CSV HEADER; 
 
 INSERT INTO shell_line (auth_group_id, num, start_date_time, org_id, fly_go) 
     SELECT auth_group_id, num, start_date_time, org.id, fly_go 
@@ -349,7 +358,7 @@ CREATE TEMPORARY TABLE tmp_duty (
     seq_num_in INT
 );
 
-\COPY tmp_duty FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/duty_schedule.csv' delimiter ',' CSV HEADER; 
+\COPY tmp_duty FROM 'C:\Users\ADMIN\Documents\source\sparkcell-autoscheduler\autoscheduler\res\duty_schedule.csv' delimiter ',' CSV HEADER; 
 
 INSERT INTO shell_duty (auth_group_id, duty_id, start_date_time, end_date_time)
     SELECT tmp_duty.auth_group_id, duty.id, sched_sign_in_date_time_dt, sched_sign_out_date_time_dt
@@ -373,7 +382,7 @@ CREATE TEMPORARY TABLE tmp_absence_request (
     patt_day_of_week_in         VARCHAR
 );
 
-\COPY tmp_absence_request FROM '~/dev/sparkcell-autoscheduler/autoscheduler/res/absence_requests.csv' WITH (delimiter ',', FORMAT csv, HEADER, force_null(occur_start_date_time_dt))
+\COPY tmp_absence_request FROM 'C:\Users\ADMIN\Documents\source\sparkcell-autoscheduler\autoscheduler\res\absence_requests.csv' WITH (delimiter ',', FORMAT csv, HEADER, force_null(occur_start_date_time_dt))
 
 INSERT INTO absence_request (person_id, reason, start_date_time, end_date_time, occur_start_date_time, occur_end_date_time, day_of_week_ptn)
     SELECT 

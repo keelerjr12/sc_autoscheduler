@@ -8,10 +8,9 @@
             <div class="row">
                 <div class="col-xl-2">
                     <ul class="list-group">
-                        <li class="list-group-item menu-list-item" [ngClass] = "currentTab === 0 ? 'active' : ''">Start</li>
-                        <li class="list-group-item menu-list-item" [ngClass] = "currentTab === 1 ? 'active' : ''">Flying Shell</li>
-                        <li class="list-group-item menu-list-item" [ngClass] = "currentTab === 2 ? 'active' : ''">Duty Shell</li>
-                        <li class="list-group-item menu-list-item" [ngClass] = "currentTab === 3 ? 'active' : ''">Build</li>
+                        <li *ngFor="let tab of tabs" class="list-group-item menu-list-item" [ngClass] = "currentTab === tab ? 'active' : ''">
+                            {{tab.label}}
+                        </li>
                     </ul>
                     <div>
                         <button type="button" id="prevBtn" class="btn btn-outline-secondary" (click)="prevNext(-1)">Previous</button>
@@ -19,69 +18,63 @@
                     </div>
                 </div>
                 <div class="col-xl-10">
-                    <div [ngClass] = "currentTab === 0 ? 'd-block' : 'd-none'">
+                    <div [ngClass] = "currentTab.label === 'Start' ? 'd-block' : 'd-none'">
                         <div>
                             <label for="startDate" class="form-label">Start date</label>
-                            <input type="date" id="startDate" class="form-control"/>
+                            <input type="date" [ngModel]="startDate | date: 'yyyy-MM-dd'" (ngModelChange)="startDate = $event" class="form-control"/>
                             <label for="endDate" class="form-label">End date</label>
-                            <input type="date" id="endDate" class="form-control"/>
+                            <input type="date" [ngModel]="endDate | date: 'yyyy-MM-dd'" (ngModelChange)="endDate = $event" class="form-control"/>
                         </div>
                     </div>
-                    <div [ngClass] = "currentTab === 1 ? 'd-block' : 'd-none'">
-                        <table class="table">
-                            <thead>
-                            <!--{% for date in shell %}
-                                <th>{{ date }}</th>
-                            {% endfor %} -->
-                            
-                                <th>Test</th>
-                            </thead>
-                            <tbody>
+                    <div [ngClass] = "currentTab.label === 'Flying Shell' ? 'd-block' : 'd-none'">
+                        <div class="text-center">
+                            <button type="button" id="prevBtn" class="btn btn-outline-secondary" (click)="prevNextDay(-1)">Prev Day</button>
+                            <h2 class="d-inline">{{ currDateStr }}</h2>
+                            <button type="button" id="prevBtn" class="btn btn-outline-secondary" (click)="prevNextDay(1)">Next Day</button>
+                        </div>
+
+                        <p-table [columns]="cols" [value]="shell_lines" styleClass="p-datatable-sm" [tableStyle]="{'min-width': '50rem'}">
+                            <ng-template pTemplate="header" let-columns>
                                 <tr>
-                            <!---    {% for date in shell %}
-                                    <td>
-                                        <table class="table table-hover">
-                                            <thead></thead>
-                                            <tbody>
-                                                {% for line in shell|lookup:date %}
-                                                <tr>
-                                                    <td>{{ line.num }}</td>
-                                                    <td>{{ line.start_date_time|date:"Hi" }}</td>
-                                                    <td>{{ line.org.name }}</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </td>-->
+                                    <th *ngFor="let col of columns" pSortableColumn="{{col.field}}">
+                                        {{col.header}}<p-sortIcon field="{{col.field}}"></p-sortIcon>
+                                    </th>
                                 </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div [ngClass] = "currentTab === 1 ? 'd-block' : 'd-none'">
-                        <table class="table">
-                            <thead>
-                                <th>Test</th>
-                            </thead>
-                            <tbody>
-                                <tr><!---
-                                {% for date in shell_duties %}
-                                    <td>
-                                        <table class="table table-hover">
-                                            <thead></thead>
-                                            <tbody>
-                                                {% for shell_duty in shell_duties|lookup:date %}
-                                                <tr>
-                                                    <td>{{ shell_duty.duty.name }}</td>
-                                                    <td>{{ shell_duty.start_date_time|date:"Hi" }}</td>
-                                                    <td>{{ shell_duty.end_date_time|date:"Hi" }}</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
+                            </ng-template>
+                            <ng-template pTemplate="body" let-rowData let-columns="columns">
+                                <tr>
+                                    <td *ngFor="let col of columns">
+                                        {{rowData[col.field]}}
                                     </td>
-                                </tr>-->
-                            </tbody>
-                        </table>
+                                </tr>
+                            </ng-template>
+                        </p-table>
                     </div>
-                    <div [ngClass] = "currentTab === 3 ? 'd-block' : 'd-none'">
+                    <div [ngClass] = "currentTab.label === 'Duty Shell' ? 'd-block' : 'd-none'">
+                        <div class="text-center">
+                            <button type="button" id="prevBtn" class="btn btn-outline-secondary" (click)="prevNextDay(-1)">Prev Day</button>
+                            <h2 class="d-inline">{{ currDateStr }}</h2>
+                            <button type="button" id="prevBtn" class="btn btn-outline-secondary" (click)="prevNextDay(1)">Next Day</button>
+                        </div>
+
+                        <p-table [columns]="cols" [value]="shell_lines" styleClass="p-datatable-sm" [tableStyle]="{'min-width': '50rem'}">
+                            <ng-template pTemplate="header" let-columns>
+                                <tr>
+                                    <th *ngFor="let col of columns" pSortableColumn="{{col.field}}">
+                                        {{col.header}}<p-sortIcon field="{{col.field}}"></p-sortIcon>
+                                    </th>
+                                </tr>
+                            </ng-template>
+                            <ng-template pTemplate="body" let-rowData let-columns="columns">
+                                <tr>
+                                    <td *ngFor="let col of columns">
+                                        {{rowData[col.field]}}
+                                    </td>
+                                </tr>
+                            </ng-template>
+                        </p-table>
+                    </div>
+                    <div [ngClass] = "currentTab.label === 'Build' ? 'd-block' : 'd-none'">
                         <form method="post" action="/build">
                             <label for="scheduleName" class="form-label">Schedule name</label>
                             <input type="text" id="scheduleName" name="scheduleName" class="form-control" />

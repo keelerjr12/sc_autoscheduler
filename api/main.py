@@ -1,3 +1,4 @@
+from datetime import date
 from repository import PersonnelRepository, ScheduleRepository, ScheduleShellRepository
 import schemas
 
@@ -31,20 +32,12 @@ async def update_person(id: int, person: schemas.PersonLine, person_repo: Person
 async def get_schedules(schedule_repo = Depends(ScheduleRepository)):
     return await schedule_repo.get_schedules()
 
-@app.get("/api/shell")
-async def get_shell(shell_repo = Depends(ScheduleShellRepository)):
-    shell = await shell_repo.get_shell()
-    days = {}
+@app.get("/api/flying_shell")
+async def get_flying_shell(date: date, shell_repo = Depends(ScheduleShellRepository)):
+    shell = await shell_repo.get_flying_shell(date)
+    return shell
 
-    for line in shell:
-        date = line.start_date_time.date()
-
-        if (date not in days.keys()):
-            shell_day = schemas.ShellDay()
-            shell_day.date = date
-            shell_day.lines = []
-            days[date] = shell_day
-
-        days[date].lines.append(line)
-
-    return [day for day in days.values()]
+@app.get("/api/duty_shell")
+async def get_duty_shell(date: date, shell_repo = Depends(ScheduleShellRepository)):
+    shell = await shell_repo.get_duty_shell(date)
+    return shell

@@ -1,4 +1,6 @@
-from database import Session, get_db
+from datetime import date, timedelta
+from database import Session, get_db 
+from sqlalchemy.orm import joinedload
 from fastapi import Depends
 import models
 
@@ -29,5 +31,8 @@ class ScheduleShellRepository:
     def __init__(self, db: Session = Depends(get_db)):
         self.db = db
 
-    async def get_shell(self):
-        return self.db.query(models.ShellLine).all()
+    async def get_flying_shell(self, date: date):
+        return self.db.query(models.ShellLine).options(joinedload(models.ShellLine.org)).filter(models.ShellLine.start_date_time.between(date, date + timedelta(days = 1))).all()
+
+    async def get_duty_shell(self, date: date):
+        return self.db.query(models.ShellDuty).options(joinedload(models.ShellDuty.duty)).filter(models.ShellDuty.start_date_time.between(date, date + timedelta(days = 1))).all()

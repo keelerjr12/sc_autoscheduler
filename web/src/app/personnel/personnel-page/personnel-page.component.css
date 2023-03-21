@@ -1,6 +1,7 @@
 th.rotate {
     max-width: 1.5em;
     min-width: 1.5em;
+    text-align: right;
     writing-mode: vertical-rl;
 }
 
