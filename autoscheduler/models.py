@@ -14,7 +14,7 @@ class Organization(Base):
 PilotOrganization = Table(
     "pilot_org",
     Base.metadata,
-    Column("pilot_id", ForeignKey("pilot.id"), primary_key=True),
+    Column("person_line_id", ForeignKey("person_line.id"), primary_key=True),
     Column("org_id", ForeignKey("org.id"), primary_key=True),
 )
 
@@ -37,20 +37,31 @@ class Qualification(Base):
 PilotQualification = Table(
     "pilot_qual",
     Base.metadata,
-    Column("pilot_id", ForeignKey("pilot.id"), primary_key=True),
+    Column("person_line_id", ForeignKey("person_line.id"), primary_key=True),
     Column("qual_id", ForeignKey("qual.id"), primary_key=True),
 )
 
-class Pilot(Base):
-    __tablename__ = 'pilot'
+class Person(Base):
+    __tablename__ = 'person'
+
+    id = Column(Integer, primary_key=True)
+    tims_id = Column(Integer)
+
+    first_name = Column(String)
+    middle_name = Column(String)
+    last_name = Column(String)
+
+class PersonLine(Base):
+    __tablename__ = 'person_line'
 
     id = Column(Integer, primary_key=True)
 
-    first_name = Column(String)
-    last_name = Column(String)
-    ausm_tier = Column(Integer)
-    assigned_org = relationship('Organization', secondary=PilotOrganization)
+    person_id = Column(Integer, ForeignKey('person.id'))
+    person = relationship('Person')
 
+    ausm_tier = Column(Integer)
+
+    assigned_org = relationship('Organization', secondary=PilotOrganization)
     quals = relationship('Qualification', secondary=PilotQualification)
 
 class ShellLine(Base):
@@ -96,8 +107,8 @@ class AbsenceRequestDto(Base):
     __tablename__ = 'absence_request'
 
     id = Column(Integer, primary_key=True)
-    person_id = Column(Integer, ForeignKey('pilot.id'))
-    person = relationship('Pilot')
+    person_id = Column(Integer, ForeignKey('person.id'))
+    person = relationship('Person')
 
     start_date_time = Column(DateTime)
     end_date_time = Column(DateTime)

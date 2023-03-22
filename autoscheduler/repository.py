@@ -6,7 +6,7 @@ from enum import IntEnum
 from sqlalchemy import select
 
 from data import Session
-from models import AbsenceRequestDto, Pilot, ShellDuty, ShellLine
+from models import AbsenceRequestDto, PersonLine, ShellDuty, ShellLine
 from scheduler.models import AbsenceRequest, Duty, Line, Person, Qualification
 
 class AutoschedulerRepository(ABC):
@@ -36,12 +36,12 @@ class DatabaseRepository(AutoschedulerRepository):
 
     def get_personnel(self) -> list[Person]:
         with Session() as session:
-            result = session.scalars(select(Pilot))
+            result = session.scalars(select(PersonLine))
             
             personnel: list[Person] = []
 
             for user in result:
-                person = Person(user.id, user.last_name, user.first_name, user.ausm_tier)
+                person = Person(user.id, user.person.last_name, user.person.first_name, user.ausm_tier)
 
                 if (len(user.assigned_org) > 0):
                     org = user.assigned_org[0].name

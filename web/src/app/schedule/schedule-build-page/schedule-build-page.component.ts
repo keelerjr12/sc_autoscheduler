@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { ShellFlyingLine } from 'src/app/core/models/shell_flying_line.model';
 import { ScheduleShellAPIService } from 'src/app/core/services/schedule-shell-api.service';
-import { BuildPageShellLine } from '../models/build-page-shell-line.model';
+import { BuildPageShellDuty, BuildPageShellLine } from '../models/build-page-shell-line.model';
 import { TabItem } from '../models/tabitem.model';
 
 @Component({
@@ -18,12 +18,18 @@ export class ScheduleBuildPageComponent {
 
   startDate: Date = new Date(2022, 11, 5);
   endDate: Date = new Date(2022, 11, 9);
-  currDate: Date = new Date(2022, 11, 5);
-  currDateStr: string = this.currDate.toDateString();
+
+  flyingCurrDate: Date = new Date(2022, 11, 5);
+  flyingCurrDateStr: string = this.flyingCurrDate.toDateString();
+
+  dutyCurrDate: Date = new Date(2022, 11, 5);
+  dutyCurrDateStr: string = this.dutyCurrDate.toDateString();
   
   shell_lines: BuildPageShellLine[] = [];
   cols: any[] = [];
 
+  shell_duties: BuildPageShellDuty[] = [];
+  duties_cols: any[] = [];
 
   constructor(private scheduleShellAPI: ScheduleShellAPIService) { }
 
@@ -42,6 +48,12 @@ export class ScheduleBuildPageComponent {
       { field: 'takeoff_time', header: 'Takeoff'},
       { field: 'assigned_org', header: 'Assigned Org'}
     ];
+
+    this.duties_cols = [
+      { field: 'name', header: 'Name'},
+      { field: 'start_date_time', header: 'Start Time'},
+      { field: 'end_date_time', header: 'End Time'},
+    ];
   }
 
   prevNext(inc: number) {
@@ -57,6 +69,8 @@ export class ScheduleBuildPageComponent {
     {
       this.loadFlyingShell();
     }
+    
+    this.loadDutyShell();
 
     this.currentTabIdx += inc;
 
@@ -71,11 +85,18 @@ export class ScheduleBuildPageComponent {
     this.currentTab = this.tabs[this.currentTabIdx];
   }
 
-  prevNextDay(inc: number) {
-    this.currDate.setDate(this.currDate.getDate() + inc);
-    this.currDateStr = this.currDate.toDateString();
+  flyingPrevNextDay(inc: number) {
+    this.flyingCurrDate.setDate(this.flyingCurrDate.getDate() + inc);
+    this.flyingCurrDateStr = this.flyingCurrDate.toDateString();
   
     this.loadFlyingShell();
+  }
+
+  dutyPrevNextDay(inc: number) {
+    this.dutyCurrDate.setDate(this.dutyCurrDate.getDate() + inc);
+    this.dutyCurrDateStr = this.dutyCurrDate.toDateString();
+  
+    this.loadDutyShell();
   }
 
   onStartPage(): boolean {
@@ -83,10 +104,18 @@ export class ScheduleBuildPageComponent {
   }
 
   loadFlyingShell(): void {
-    this.scheduleShellAPI.getFlyingShell(this.currDate).subscribe(shell => {
+    this.scheduleShellAPI.getFlyingShell(this.flyingCurrDate).subscribe(shell => {
       console.log(shell);
       this.shell_lines = shell.map(line => new BuildPageShellLine(line));
       console.log(this.shell_lines);
+    });
+  }
+
+  loadDutyShell(): void {
+    this.scheduleShellAPI.getDutyShell(this.dutyCurrDate).subscribe(shell => {
+      console.log(shell);
+      this.shell_duties = shell.map(duty => new BuildPageShellDuty(duty)).sort((lhs, rhs) => lhs.start_date_time <= rhs.start_date_time ? -1 : 1);
+      console.log(this.shell_duties);
     });
   }
 }

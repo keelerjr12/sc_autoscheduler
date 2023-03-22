@@ -28,9 +28,9 @@
                     </div>
                     <div [ngClass] = "currentTab.label === 'Flying Shell' ? 'd-block' : 'd-none'">
                         <div class="text-center">
-                            <button type="button" id="prevBtn" class="btn btn-outline-secondary" (click)="prevNextDay(-1)">Prev Day</button>
-                            <h2 class="d-inline">{{ currDateStr }}</h2>
-                            <button type="button" id="prevBtn" class="btn btn-outline-secondary" (click)="prevNextDay(1)">Next Day</button>
+                            <button type="button" class="btn btn-outline-secondary" (click)="flyingPrevNextDay(-1)">Prev Day</button>
+                            <h2 class="d-inline">{{ flyingCurrDateStr }}</h2>
+                            <button type="button" class="btn btn-outline-secondary" (click)="flyingPrevNextDay(1)">Next Day</button>
                         </div>
 
                         <p-table [columns]="cols" [value]="shell_lines" styleClass="p-datatable-sm" [tableStyle]="{'min-width': '50rem'}">
@@ -52,12 +52,12 @@
                     </div>
                     <div [ngClass] = "currentTab.label === 'Duty Shell' ? 'd-block' : 'd-none'">
                         <div class="text-center">
-                            <button type="button" id="prevBtn" class="btn btn-outline-secondary" (click)="prevNextDay(-1)">Prev Day</button>
-                            <h2 class="d-inline">{{ currDateStr }}</h2>
-                            <button type="button" id="prevBtn" class="btn btn-outline-secondary" (click)="prevNextDay(1)">Next Day</button>
+                            <button type="button" class="btn btn-outline-secondary" (click)="dutyPrevNextDay(-1)">Prev Day</button>
+                            <h2 class="d-inline">{{ dutyCurrDateStr }}</h2>
+                            <button type="button" class="btn btn-outline-secondary" (click)="dutyPrevNextDay(1)">Next Day</button>
                         </div>
 
-                        <p-table [columns]="cols" [value]="shell_lines" styleClass="p-datatable-sm" [tableStyle]="{'min-width': '50rem'}">
+                        <p-table [columns]="duties_cols" [value]="shell_duties" styleClass="p-datatable-sm" [tableStyle]="{'min-width': '50rem'}">
                             <ng-template pTemplate="header" let-columns>
                                 <tr>
                                     <th *ngFor="let col of columns" pSortableColumn="{{col.field}}">

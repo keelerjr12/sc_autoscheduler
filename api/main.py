@@ -1,5 +1,6 @@
 from datetime import date
 from repository import PersonnelRepository, ScheduleRepository, ScheduleShellRepository
+import subprocess
 import schemas
 
 from fastapi import FastAPI, Depends
@@ -26,11 +27,8 @@ async def get_personnel(person_repo: PersonnelRepository = Depends(PersonnelRepo
 @app.put("/api/personnel/{id}")
 async def update_person(id: int, person: schemas.PersonLine, person_repo: PersonnelRepository = Depends(PersonnelRepository)):
     await person_repo.update_person(**person.dict())
-    return {} #TODO: this needs to return something with the correct status codeA
+    return {} #TODO: this needs to return something with the correct status code
 
-@app.get("/api/schedules", response_model=list[schemas.Schedule])
-async def get_schedules(schedule_repo = Depends(ScheduleRepository)):
-    return await schedule_repo.get_schedules()
 
 @app.get("/api/flying_shell")
 async def get_flying_shell(date: date, shell_repo = Depends(ScheduleShellRepository)):
@@ -41,3 +39,13 @@ async def get_flying_shell(date: date, shell_repo = Depends(ScheduleShellReposit
 async def get_duty_shell(date: date, shell_repo = Depends(ScheduleShellRepository)):
     shell = await shell_repo.get_duty_shell(date)
     return shell
+
+
+@app.get("/api/build") # TODO: make this a post request with schedules route
+async def build_schedule():
+    subprocess.Popen(['python', '../autoscheduler/main.py'])
+    return "Building..."
+
+@app.get("/api/schedules", response_model=list[schemas.Schedule])
+async def get_schedules(schedule_repo = Depends(ScheduleRepository)):
+    return await schedule_repo.get_schedules()
