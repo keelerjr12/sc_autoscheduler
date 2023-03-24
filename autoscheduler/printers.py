@@ -1,5 +1,6 @@
 
 from abc import ABC, abstractmethod
+from repository import DatabaseRepository
 from scheduler.models import Duty, Line, Person
 from scheduler.solver import ScheduleSolution, time_between
 import xlsxwriter
@@ -192,3 +193,12 @@ class ExcelSolutionPrinter():
                         worksheet.write(row, col + 3, line._person._last_name + ', ' + line._person._first_name)
                     
                     row = row + 1
+
+class DatabaseSolutionPrinter():
+    def __init__(self, solution: ScheduleSolution, repo: DatabaseRepository):
+        self._solution = solution
+        self._repo = repo
+
+    def print(self):
+        print('printing.......')
+        self._repo.insert_schedule()

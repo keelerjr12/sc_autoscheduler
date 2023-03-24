@@ -1,7 +1,9 @@
 import configparser
 from repository import AutoschedulerRepository, CSVRepository, DatabaseRepository 
 from scheduler.solver import ScheduleModel, ScheduleSolution, ScheduleSolver, ShellSchedule
-from printers import ConsoleSolutionPrinter, ExcelSolutionPrinter, HtmlSolutionPrinter, SolutionPrinter
+from printers import ConsoleSolutionPrinter, DatabaseSolutionPrinter, ExcelSolutionPrinter, HtmlSolutionPrinter, SolutionPrinter
+
+from ortools.sat.python import cp_model
 
 def get_repo(repo_type: str, config: configparser.ConfigParser) -> AutoschedulerRepository:
     if (repo_type.lower() == 'database'):
@@ -16,6 +18,10 @@ def get_printer(printer_type: str, config: configparser.ConfigParser, solution: 
     elif (printer_type.lower() == 'excel'):
         dir = config['FILES']['output_dir']
         return ExcelSolutionPrinter(solution, dir)
+    elif (printer_type.lower() == 'database'):
+        print('hey')
+        db_repo = DatabaseRepository()
+        return DatabaseSolutionPrinter(solution, db_repo)
     
     return ConsoleSolutionPrinter(solution)
 
@@ -23,7 +29,7 @@ def run():
     print("Entering Run")
 
     REPO_TYPE = 'Database'
-    PRINTER_TYPE = 'Console'
+    PRINTER_TYPE = 'Database'
 
     config = configparser.ConfigParser()
     config.read("autoscheduler/config.ini")
@@ -40,7 +46,8 @@ def run():
     model.add_all_contraints()
 
     solver = ScheduleSolver(model, personnel, shell)
-    solution = solver.solve()
+    #solution = solver.solve()
+    solution = ScheduleSolution(cp_model.OPTIMAL, ShellSchedule([], [])) # TODO: make sure to remove this after testing!
 
     printer = get_printer(PRINTER_TYPE, config, solution)
     printer.print()

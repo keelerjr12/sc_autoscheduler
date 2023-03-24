@@ -116,3 +116,16 @@ class AbsenceRequestDto(Base):
     occur_end_date_time = Column(DateTime)
 
     day_of_week_ptn = Column(Integer)
+
+class Schedule(Base):
+    __tablename__ = 'schedule'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
+
+    submission_date_time = Column(DateTime)
+
+    status = Column(String)

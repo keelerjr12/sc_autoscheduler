@@ -88,6 +88,9 @@ class DatabaseRepository(AutoschedulerRepository):
                             ars.append(AbsenceRequest(ar_dto.person_id, single_dt, new_end_dt))
 
         return ars
+    
+    def insert_schedule(self) -> None:
+        print('insert schedule here')
 
 
 def parse_csv(file: str, parse_fn):
